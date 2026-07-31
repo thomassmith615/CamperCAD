@@ -2,6 +2,10 @@ import type { Vector3 } from 'three';
 import type { DisplayUnit } from '@/math/Units';
 import type { ProjectionMode, ViewPreset } from './CameraManager';
 import type { VehicleModel } from '@/vehicle/VehicleModel';
+import type { SceneObject } from '@/objects/SceneObject';
+import type { ObjectPropertyKey } from '@/objects/ObjectTypes';
+import type { GizmoMode } from '@/selection/TransformGizmo';
+import type { ToolId } from '@/tools/ToolTypes';
 
 /**
  * The application's event vocabulary.
@@ -33,4 +37,30 @@ export interface AppEvents {
    * van floor plane in internal inches, or null when the pointer is off-plane.
    */
   'pointer:moved': { point: Vector3 | null };
+
+  /** Objects entered the design, whether newly created or restored by undo. */
+  'objects:added': { objects: SceneObject[] };
+  /** Objects left the design. Consumers holding references must drop them. */
+  'objects:removed': { objects: SceneObject[] };
+  /**
+   * An object's state changed. `key` names the property, or is `transform` when
+   * a gizmo drag changed position, rotation or dimensions together.
+   */
+  'object:changed': { object: SceneObject; key: ObjectPropertyKey | 'transform' };
+  /** The selection changed. The array is ordered by time of selection. */
+  'selection:changed': { objects: SceneObject[] };
+  /** The undo history changed. Labels describe the next undo and redo steps. */
+  'history:changed': {
+    canUndo: boolean;
+    canRedo: boolean;
+    undoLabel: string | null;
+    redoLabel: string | null;
+  };
+  /** The active tool changed. */
+  'tool:changed': { tool: ToolId };
+  /**
+   * The transform gizmo's state changed. `enabled` is false when nothing
+   * transformable is selected; `multiSelect` restricts the available modes.
+   */
+  'gizmo:changed': { mode: GizmoMode; enabled: boolean; multiSelect: boolean };
 }

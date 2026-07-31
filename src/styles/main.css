@@ -418,6 +418,97 @@ body {
   margin-left: auto;
 }
 
+/* ------------------------------------------------------------ tool button */
+
+.tool-btn--icon {
+  padding: 0;
+  width: 30px;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- marquee */
+
+.marquee {
+  position: absolute;
+  z-index: 3;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* ----------------------------------------------------------- input fields */
+
+.field-input {
+  height: 24px;
+  width: 100%;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+}
+
+.field-input--text {
+  font-family: var(--ui);
+  text-align: left;
+}
+
+.field-input:hover:not(:disabled) {
+  border-color: var(--bg-3);
+}
+
+.field-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.field-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.field-color {
+  height: 24px;
+  width: 100%;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  cursor: pointer;
+}
+
+.field-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.field-color::-webkit-color-swatch {
+  border: 0;
+  border-radius: 2px;
+}
+
+.field-textarea {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--text);
+  font-family: var(--ui);
+  font-size: 12px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.field-textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0ms !important;

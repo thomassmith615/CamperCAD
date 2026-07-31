@@ -8,8 +8,26 @@ import { GridManager } from '@/scene/GridManager';
 import { VehicleBuilder } from '@/vehicle/VehicleBuilder';
 import type { VehicleModel } from '@/vehicle/VehicleModel';
 import type { VehicleDefinition } from '@/vehicle/VehicleTypes';
+import { ObjectFactory } from '@/objects/ObjectFactory';
+import { ObjectStore } from '@/objects/ObjectStore';
+import type { SceneObject } from '@/objects/SceneObject';
+import type { ObjectProperties, ObjectPropertyKey } from '@/objects/ObjectTypes';
+import { CommandStack } from '@/commands/CommandStack';
+import { AddObjectCommand } from '@/commands/AddObjectCommand';
+import { RemoveObjectCommand } from '@/commands/RemoveObjectCommand';
+import { SetPropertyCommand } from '@/commands/SetPropertyCommand';
+import { SelectionManager } from '@/selection/SelectionManager';
+import { SelectionOutline } from '@/selection/SelectionOutline';
+import { TransformGizmo, type GizmoMode } from '@/selection/TransformGizmo';
+import { ToolManager } from '@/tools/ToolManager';
+import { SelectTool } from '@/tools/SelectTool';
+import { CreateBoxTool } from '@/tools/CreateBoxTool';
+import type { ToolId } from '@/tools/ToolTypes';
 import type { AppEvents } from './AppEvents';
 import type { DisplayUnit } from '@/math/Units';
+
+/** Offset applied to duplicated objects so a copy is visible, in inches. */
+const DUPLICATE_OFFSET = 6;
 
 /**
  * The composition root.
@@ -29,6 +47,14 @@ export class Application {
   readonly controls: ControlsManager;
   readonly grid: GridManager;
 
+  readonly objects: ObjectStore;
+  readonly factory = new ObjectFactory();
+  readonly history: CommandStack;
+  readonly selection: SelectionManager;
+  readonly gizmo: TransformGizmo;
+  readonly tools: ToolManager;
+
+  private readonly outline = new SelectionOutline();
   private readonly clock = new THREE.Clock();
   private readonly raycaster = new THREE.Raycaster();
   private readonly floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -39,9 +65,11 @@ export class Application {
   private displayUnit: DisplayUnit = 'in';
   private frameHandle = 0;
   private smoothedFps = 60;
+  private cameraWasAnimating = false;
 
   /**
-   * @param host Element the viewport canvas is mounted into.
+   * @param host Element the viewport canvas is mounted into. It must be a
+   * positioned element, since overlay UI such as the marquee is placed inside it.
    */
   constructor(host: HTMLElement) {
     this.renderer = new RendererManager(host);
@@ -51,6 +79,42 @@ export class Application {
     this.grid = new GridManager(1);
 
     this.scene.add('helpers', this.grid.group);
+    this.scene.add('helpers', this.outline.group);
+
+    this.objects = new ObjectStore(this.scene, this.bus);
+    this.history = new CommandStack(this.bus);
+    this.selection = new SelectionManager(this.bus);
+
+    this.gizmo = new TransformGizmo(
+      this.scene,
+      this.cameras,
+      this.controls,
+      this.renderer.domElement,
+      this.selection,
+      this.objects,
+      this.history,
+      this.bus,
+    );
+
+    this.tools = new ToolManager(this.renderer.domElement, this.bus);
+    this.tools.register(
+      new SelectTool(host, this.renderer.domElement, this.cameras, this.objects, this.selection, this.gizmo),
+    );
+    this.tools.register(
+      new CreateBoxTool(
+        this.renderer.domElement,
+        this.scene,
+        this.cameras,
+        this.grid,
+        this.factory,
+        this.objects,
+        this.history,
+        this.selection,
+        this.tools,
+      ),
+    );
+
+    this.bus.on('selection:changed', ({ objects }) => this.outline.setSelection(objects));
 
     this.disposers.push(this.renderer.onResize((width, height) => this.cameras.setAspect(width / height)));
     this.disposers.push(this.controls.onUserInteract(() => this.onUserMovedCamera()));
@@ -95,7 +159,7 @@ export class Application {
   /** Moves the camera to a named view. */
   applyView(preset: ViewPreset): void {
     this.cameras.applyView(preset);
-    this.controls.setEnabled(false);
+    this.beginCameraMove();
     this.bus.emit('view:changed', { preset });
     this.bus.emit('projection:changed', { mode: this.cameras.projection });
   }
@@ -109,7 +173,7 @@ export class Application {
   /** Frames all vehicle and design geometry. */
   fitView(): void {
     this.cameras.frame(this.scene.contentBounds());
-    this.controls.setEnabled(false);
+    this.beginCameraMove();
   }
 
   /** Changes grid line spacing, in inches. */
@@ -138,6 +202,58 @@ export class Application {
     }
   }
 
+  /** Activates a tool by identifier. */
+  setTool(tool: ToolId): void {
+    this.tools.activate(tool);
+  }
+
+  /** Switches the transform gizmo between move, rotate and scale. */
+  setGizmoMode(mode: GizmoMode): void {
+    this.gizmo.setMode(mode);
+  }
+
+  /**
+   * Edits one property of one object through the history.
+   *
+   * No-op edits are discarded rather than pushed, so clicking into a field and
+   * out again does not create an undo step.
+   */
+  setObjectProperty<K extends ObjectPropertyKey>(
+    object: SceneObject,
+    key: K,
+    value: ObjectProperties[K],
+  ): void {
+    if (!SetPropertyCommand.changes(object, key, value)) return;
+    this.history.execute(new SetPropertyCommand(this.objects, object, key, value));
+  }
+
+  /** Deletes every unlocked object in the selection. */
+  deleteSelection(): void {
+    const removable = this.selection.objects.filter((object) => !object.isLocked);
+    if (removable.length === 0) return;
+    this.history.execute(new RemoveObjectCommand(this.objects, removable));
+  }
+
+  /** Copies the selection, offsets the copies, and selects them. */
+  duplicateSelection(): void {
+    const sources = this.selection.objects;
+    if (sources.length === 0) return;
+
+    const copies = sources.map((object) => this.factory.duplicate(object, DUPLICATE_OFFSET));
+    this.history.execute(new AddObjectCommand(this.objects, copies, `Duplicate ${sources.length} object(s)`));
+    this.selection.select(copies, 'replace');
+  }
+
+  /** Reverses the most recent edit. */
+  undo(): void {
+    this.history.undo();
+  }
+
+  /** Re-applies the most recently undone edit. */
+  redo(): void {
+    this.history.redo();
+  }
+
   /** Starts the frame loop. */
   start(): void {
     if (this.frameHandle !== 0) return;
@@ -155,6 +271,9 @@ export class Application {
     this.frameHandle = 0;
     for (const dispose of this.disposers) dispose();
     this.disposers.length = 0;
+    this.tools.dispose();
+    this.gizmo.dispose();
+    this.outline.dispose();
     this.controls.dispose();
     this.grid.dispose();
     this.renderer.dispose();
@@ -165,15 +284,22 @@ export class Application {
    * Advances and draws one frame.
    *
    * Order matters: the camera tween runs first so controls never fight it,
-   * controls damping second, and statistics are read after the draw call so they
-   * describe the frame just presented rather than the previous one.
+   * controls damping second, then the gizmo and selection outlines follow
+   * whatever moved, and statistics are read after the draw call so they describe
+   * the frame just presented rather than the previous one.
    */
   private update(): void {
     const delta = Math.min(this.clock.getDelta(), 0.1);
 
     const animating = this.cameras.update(delta);
-    if (!animating && !this.controls.isDragging) this.controls.setEnabled(true);
+    if (this.cameraWasAnimating && !animating) {
+      this.controls.resume('camera-tween');
+    }
+    this.cameraWasAnimating = animating;
+
     this.controls.update();
+    this.gizmo.update(this.cameras.camera);
+    this.outline.update();
 
     this.renderer.render(this.scene.scene, this.cameras.camera);
 
@@ -186,6 +312,12 @@ export class Application {
       drawCalls: stats.drawCalls,
       triangles: stats.triangles,
     });
+  }
+
+  /** Holds the camera still for the duration of a programmatic move. */
+  private beginCameraMove(): void {
+    this.controls.suspend('camera-tween');
+    this.cameraWasAnimating = true;
   }
 
   /** Drops the active view preset once the user takes over the camera. */
@@ -229,10 +361,12 @@ export class Application {
   }
 
   /**
-   * View shortcuts.
+   * Keyboard shortcuts.
    *
-   * Keys are ignored while a text field has focus, and while the pointer is
-   * outside the viewport, so typing a cabinet name never flips the camera.
+   * Keys are ignored while a text field has focus, so typing a cabinet name
+   * never deletes the selection or flips the camera. Editing shortcuts that use
+   * a modifier are handled before the plain-key shortcuts, since the latter
+   * deliberately bail out on any modifier.
    */
   private bindKeyboard(): void {
     const presets: Record<string, ViewPreset> = {
@@ -244,10 +378,37 @@ export class Application {
       Digit6: 'right',
     };
 
+    const isTyping = (target: EventTarget | null): boolean => {
+      const element = target as HTMLElement | null;
+      if (!element) return false;
+      return element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable;
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTyping(event.target)) return;
+
+      const accel = event.metaKey || event.ctrlKey;
+      if (accel) {
+        switch (event.code) {
+          case 'KeyZ':
+            if (event.shiftKey) this.redo();
+            else this.undo();
+            event.preventDefault();
+            return;
+          case 'KeyY':
+            this.redo();
+            event.preventDefault();
+            return;
+          case 'KeyD':
+            this.duplicateSelection();
+            event.preventDefault();
+            return;
+          default:
+            return;
+        }
+      }
+
+      if (event.altKey) return;
 
       const preset = presets[event.code];
       if (preset) {
@@ -259,22 +420,52 @@ export class Application {
       switch (event.code) {
         case 'KeyF':
           this.fitView();
-          event.preventDefault();
           break;
         case 'KeyG':
           this.setGridVisible(!this.grid.visible);
-          event.preventDefault();
           break;
         case 'KeyO':
           this.setProjection(this.cameras.projection === 'perspective' ? 'orthographic' : 'perspective');
-          event.preventDefault();
+          break;
+        case 'KeyQ':
+          this.setTool('select');
+          break;
+        case 'KeyB':
+          this.setTool('create-box');
+          break;
+        case 'KeyW':
+          this.setGizmoMode('translate');
+          break;
+        case 'KeyE':
+          this.setGizmoMode('rotate');
+          break;
+        case 'KeyR':
+          this.setGizmoMode('scale');
+          break;
+        case 'Delete':
+        case 'Backspace':
+          this.deleteSelection();
+          break;
+        case 'Escape':
+          this.tools.cancel();
+          this.selection.clear();
+          break;
+        case 'Space':
+          this.controls.setOrbitOnLeft(true);
           break;
         default:
-          break;
+          return;
       }
+      event.preventDefault();
+    };
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'Space') this.controls.setOrbitOnLeft(false);
     };
 
     window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
     this.disposers.push(() => window.removeEventListener('keydown', onKeyDown));
+    this.disposers.push(() => window.removeEventListener('keyup', onKeyUp));
   }
 }

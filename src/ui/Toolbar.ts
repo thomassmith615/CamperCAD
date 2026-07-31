@@ -1,6 +1,8 @@
 import type { Application } from '@/core/Application';
 import { IMPERIAL_SPACINGS, METRIC_SPACINGS } from '@/scene/GridManager';
 import { formatLength, isMetric, UNIT_LABELS, type DisplayUnit } from '@/math/Units';
+import type { GizmoMode } from '@/selection/TransformGizmo';
+import type { ToolId } from '@/tools/ToolTypes';
 import { icon } from './icons';
 
 /** Units offered in the toolbar picker, in the order they appear. */
@@ -11,32 +13,67 @@ const UNIT_ORDER: DisplayUnit[] = ['in', 'ft-in', 'mm', 'cm', 'm'];
  *
  * Controls are created from the application's actual capabilities, never
  * declared ahead of them: a control appears here only once the subsystem behind
- * it exists. That is a deliberate constraint — a toolbar of greyed-out promises
- * teaches users nothing, and a toolbar that silently does nothing is worse.
+ * it exists. Buttons that represent a real command but are momentarily
+ * inapplicable — undo with an empty history, delete with nothing selected — are
+ * shown disabled, which tells the user the capability exists and what it needs.
  * Later milestones add groups here as their subsystems land.
  */
 export class Toolbar {
   private readonly app: Application;
   private readonly host: HTMLElement;
 
+  private readonly toolButtons = new Map<ToolId, HTMLButtonElement>();
+  private readonly gizmoButtons = new Map<GizmoMode, HTMLButtonElement>();
+
   private perspectiveButton!: HTMLButtonElement;
   private orthographicButton!: HTMLButtonElement;
   private gridButton!: HTMLButtonElement;
   private spacingSelect!: HTMLSelectElement;
+  private undoButton!: HTMLButtonElement;
+  private redoButton!: HTMLButtonElement;
+  private duplicateButton!: HTMLButtonElement;
+  private deleteButton!: HTMLButtonElement;
 
   constructor(host: HTMLElement, app: Application) {
     this.host = host;
     this.app = app;
 
     this.host.replaceChildren();
-    this.host.append(this.buildBrand(), this.buildProjectionGroup(), this.buildGridGroup(), this.buildViewGroup());
+    this.host.append(
+      this.buildBrand(),
+      this.buildToolGroup(),
+      this.buildGizmoGroup(),
+      this.buildEditGroup(),
+      this.buildProjectionGroup(),
+      this.buildGridGroup(),
+      this.buildViewGroup(),
+    );
 
     app.bus.on('projection:changed', ({ mode }) => this.syncProjection(mode));
     app.bus.on('grid:changed', ({ visible }) => this.syncGrid(visible));
     app.bus.on('units:changed', ({ unit }) => this.rebuildSpacingOptions(unit));
+    app.bus.on('tool:changed', ({ tool }) => this.syncTool(tool));
+    app.bus.on('gizmo:changed', ({ mode, enabled, multiSelect }) => this.syncGizmo(mode, enabled, multiSelect));
+    app.bus.on('history:changed', ({ canUndo, canRedo, undoLabel, redoLabel }) => {
+      this.undoButton.disabled = !canUndo;
+      this.redoButton.disabled = !canRedo;
+      this.undoButton.title = canUndo ? `Undo ${undoLabel} — Ctrl+Z` : 'Nothing to undo';
+      this.redoButton.title = canRedo ? `Redo ${redoLabel} — Ctrl+Shift+Z` : 'Nothing to redo';
+    });
+    app.bus.on('selection:changed', ({ objects }) => {
+      const deletable = objects.some((object) => !object.isLocked);
+      this.duplicateButton.disabled = objects.length === 0;
+      this.deleteButton.disabled = !deletable;
+    });
 
     this.syncProjection('perspective');
     this.syncGrid(true);
+    this.syncTool('select');
+    this.syncGizmo('translate', false, false);
+    this.undoButton.disabled = true;
+    this.redoButton.disabled = true;
+    this.duplicateButton.disabled = true;
+    this.deleteButton.disabled = true;
   }
 
   /** Product mark and version. */
@@ -44,18 +81,61 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.1.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.2.0</span>';
     return brand;
+  }
+
+  /** Tool selection: pick things, or place new ones. */
+  private buildToolGroup(): HTMLElement {
+    const group = this.groupElement();
+
+    const select = this.button('cursor', 'Select', 'Select and marquee — Q', () => this.app.setTool('select'));
+    const box = this.button('box', 'Box', 'Place a box on the floor — B', () => this.app.setTool('create-box'));
+
+    this.toolButtons.set('select', select);
+    this.toolButtons.set('create-box', box);
+
+    group.append(select, box);
+    return group;
+  }
+
+  /** Transform gizmo modes. */
+  private buildGizmoGroup(): HTMLElement {
+    const group = this.groupElement();
+
+    const move = this.iconButton('move', 'Move — W', () => this.app.setGizmoMode('translate'));
+    const rotate = this.iconButton('rotate', 'Rotate — E', () => this.app.setGizmoMode('rotate'));
+    const scale = this.iconButton('scale', 'Resize — R', () => this.app.setGizmoMode('scale'));
+
+    this.gizmoButtons.set('translate', move);
+    this.gizmoButtons.set('rotate', rotate);
+    this.gizmoButtons.set('scale', scale);
+
+    group.append(move, rotate, scale);
+    return group;
+  }
+
+  /** History and object operations. */
+  private buildEditGroup(): HTMLElement {
+    const group = this.groupElement();
+
+    this.undoButton = this.iconButton('undo', 'Undo — Ctrl+Z', () => this.app.undo());
+    this.redoButton = this.iconButton('redo', 'Redo — Ctrl+Shift+Z', () => this.app.redo());
+    this.duplicateButton = this.iconButton('duplicate', 'Duplicate — Ctrl+D', () => this.app.duplicateSelection());
+    this.deleteButton = this.iconButton('trash', 'Delete — Del', () => this.app.deleteSelection());
+
+    group.append(this.undoButton, this.redoButton, this.duplicateButton, this.deleteButton);
+    return group;
   }
 
   /** Perspective / orthographic pair, mirroring the camera manager's state. */
   private buildProjectionGroup(): HTMLElement {
     const group = this.groupElement();
 
-    this.perspectiveButton = this.button('perspective', 'Perspective', 'Perspective view — O', () =>
+    this.perspectiveButton = this.iconButton('perspective', 'Perspective view — O', () =>
       this.app.setProjection('perspective'),
     );
-    this.orthographicButton = this.button('orthographic', 'Ortho', 'Orthographic view — O', () =>
+    this.orthographicButton = this.iconButton('orthographic', 'Orthographic view — O', () =>
       this.app.setProjection('orthographic'),
     );
 
@@ -63,11 +143,11 @@ export class Toolbar {
     return group;
   }
 
-  /** Grid visibility and spacing. */
+  /** Grid visibility, spacing and display units. */
   private buildGridGroup(): HTMLElement {
     const group = this.groupElement();
 
-    this.gridButton = this.button('grid', 'Grid', 'Show or hide the grid — G', () =>
+    this.gridButton = this.iconButton('grid', 'Show or hide the grid — G', () =>
       this.app.setGridVisible(!this.app.grid.visible),
     );
 
@@ -139,6 +219,27 @@ export class Toolbar {
     this.spacingSelect.disabled = !visible;
   }
 
+  private syncTool(tool: ToolId): void {
+    for (const [id, button] of this.toolButtons) {
+      button.classList.toggle('is-active', id === tool);
+    }
+  }
+
+  /**
+   * Reflects gizmo state.
+   *
+   * Rotate and scale are disabled for a multiple selection because the gizmo
+   * only implements group translation; showing them enabled would promise a
+   * behaviour that is not there.
+   */
+  private syncGizmo(mode: GizmoMode, enabled: boolean, multiSelect: boolean): void {
+    for (const [id, button] of this.gizmoButtons) {
+      button.classList.toggle('is-active', enabled && id === mode);
+      const allowed = enabled && (id === 'translate' || !multiSelect);
+      button.disabled = !allowed;
+    }
+  }
+
   private groupElement(): HTMLElement {
     const group = document.createElement('div');
     group.className = 'tool-group';
@@ -151,6 +252,17 @@ export class Toolbar {
     element.className = 'tool-btn';
     element.title = title;
     element.innerHTML = `${icon(iconName)}<span>${label}</span>`;
+    element.addEventListener('click', onClick);
+    return element;
+  }
+
+  private iconButton(iconName: string, title: string, onClick: () => void): HTMLButtonElement {
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.className = 'tool-btn tool-btn--icon';
+    element.title = title;
+    element.setAttribute('aria-label', title);
+    element.innerHTML = icon(iconName);
     element.addEventListener('click', onClick);
     return element;
   }

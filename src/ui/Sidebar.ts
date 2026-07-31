@@ -1,7 +1,9 @@
 import type { Application } from '@/core/Application';
 import type { VehicleModel } from '@/vehicle/VehicleModel';
+import type { SceneObject } from '@/objects/SceneObject';
 import { formatLength, isMetric } from '@/math/Units';
 import { Panel } from './Panel';
+import { ObjectInspector } from './ObjectInspector';
 
 /** Heights at which interior width is reported, in inches. */
 const WIDTH_SAMPLE_HEIGHTS = [12, 24, 36, 48, 60];
@@ -9,50 +11,115 @@ const WIDTH_SAMPLE_HEIGHTS = [12, 24, 36, 48, 60];
 /**
  * The right-hand inspector.
  *
- * In this milestone it inspects the vehicle, which is the only thing in the
- * scene. The structure is the one the object inspector will use: panels of
- * labelled readouts driven by a list of update closures, so a unit change
- * re-renders every value without rebuilding the DOM or losing panel state.
+ * The sidebar shows one of three things depending on the selection: the vehicle
+ * when nothing is selected, an object's properties when exactly one thing is,
+ * and a summary when several are. Swapping the panel set rather than stacking
+ * everything keeps the panel the user needs at the top of the column, where a
+ * 320-pixel sidebar has room for it.
  *
- * The interior width table is the panel that earns its place. Every conversion
- * decision — whether a bed fits crosswise, how deep the galley can be, where the
- * shoulder starts stealing headroom — comes from knowing the width at a given
- * height, and no published spec sheet lists it.
+ * Readouts are driven by a list of update closures, so a unit change re-renders
+ * every value without rebuilding the DOM or collapsing open panels.
  */
 export class Sidebar {
   private readonly app: Application;
   private readonly host: HTMLElement;
   private readonly updaters: Array<() => void> = [];
+  private readonly inspector: ObjectInspector;
+
+  private vehiclePanels: HTMLElement[] = [];
+  private multiPanel: Panel | null = null;
+  private multiCount!: HTMLElement;
+  private multiWeight!: HTMLElement;
+  private multiPrice!: HTMLElement;
 
   constructor(host: HTMLElement, app: Application) {
     this.host = host;
     this.app = app;
+    this.inspector = new ObjectInspector(app);
 
-    app.bus.on('vehicle:loaded', ({ vehicle }) => this.rebuild(vehicle));
+    app.bus.on('vehicle:loaded', ({ vehicle }) => {
+      this.buildVehiclePanels(vehicle);
+      this.render();
+    });
     app.bus.on('units:changed', () => this.refresh());
+    app.bus.on('selection:changed', () => this.render());
+    app.bus.on('object:changed', () => {
+      if (this.app.selection.size > 1) this.refreshMultiSummary();
+    });
 
-    if (app.vehicle) this.rebuild(app.vehicle);
+    if (app.vehicle) {
+      this.buildVehiclePanels(app.vehicle);
+      this.render();
+    }
   }
 
-  /** Rebuilds every panel for a newly loaded vehicle. */
-  private rebuild(vehicle: VehicleModel): void {
-    this.host.replaceChildren();
-    this.updaters.length = 0;
+  /** Shows the panel set matching the current selection. */
+  private render(): void {
+    const selected = this.app.selection.objects;
 
-    this.host.append(
+    if (selected.length === 1) {
+      this.inspector.setTarget(selected[0]);
+      this.host.replaceChildren(...this.inspector.panels.map((panel) => panel.element));
+      return;
+    }
+
+    this.inspector.setTarget(null);
+
+    if (selected.length > 1) {
+      this.host.replaceChildren(this.multiSummary().element);
+      this.refreshMultiSummary();
+      return;
+    }
+
+    this.host.replaceChildren(...this.vehiclePanels);
+    this.refresh();
+  }
+
+  /** Re-runs every vehicle readout closure, e.g. after a unit change. */
+  private refresh(): void {
+    for (const update of this.updaters) update();
+    if (this.app.selection.size > 1) this.refreshMultiSummary();
+  }
+
+  /** Builds the panel shown for a multiple selection. */
+  private multiSummary(): Panel {
+    if (this.multiPanel) return this.multiPanel;
+
+    const panel = new Panel('Selection');
+    this.multiCount = panel.addReadout('Objects', '0', true);
+    this.multiWeight = panel.addReadout('Total weight', '0 lb', true);
+    this.multiPrice = panel.addReadout('Total price', '0', true);
+    panel.addHint(
+      'Editing several objects at once is not supported yet. Move the group with the gizmo, or select one object to edit its properties.',
+    );
+
+    this.multiPanel = panel;
+    return panel;
+  }
+
+  /** Recomputes the multiple-selection totals. */
+  private refreshMultiSummary(): void {
+    if (!this.multiPanel) return;
+    const objects: SceneObject[] = this.app.selection.objects;
+
+    const weight = objects.reduce((total, object) => total + object.get('weight'), 0);
+    const price = objects.reduce((total, object) => total + object.get('price'), 0);
+
+    this.multiCount.textContent = String(objects.length);
+    this.multiWeight.textContent = `${Math.round(weight * 10) / 10} lb`;
+    this.multiPrice.textContent = price.toFixed(2);
+  }
+
+  /** Rebuilds the vehicle panel set for a newly loaded vehicle. */
+  private buildVehiclePanels(vehicle: VehicleModel): void {
+    this.updaters.length = 0;
+    this.vehiclePanels = [
       this.buildVehiclePanel(vehicle).element,
       this.buildWidthPanel(vehicle).element,
       this.buildVisibilityPanel(vehicle).element,
       this.buildControlsPanel().element,
       this.buildSourcesPanel(vehicle).element,
-    );
-
-    this.refresh();
-  }
-
-  /** Re-runs every readout closure, e.g. after a unit change. */
-  private refresh(): void {
-    for (const update of this.updaters) update();
+    ];
   }
 
   /** Headline identity and dimensions. */
@@ -121,10 +188,17 @@ export class Sidebar {
   private buildControlsPanel(): Panel {
     const panel = new Panel('Controls', true);
     panel.addHint(
-      'Drag to orbit · right-drag or two fingers to pan · scroll to zoom<br><br>' +
-        '<span class="kbd">1</span>–<span class="kbd">6</span> named views &nbsp; ' +
+      'Left-drag to select · middle-drag to orbit · right-drag to pan · scroll to zoom<br>' +
+        'Hold <span class="kbd">Space</span> to orbit with the left button.<br><br>' +
+        '<span class="kbd">Q</span> select &nbsp; <span class="kbd">B</span> box &nbsp; ' +
+        '<span class="kbd">W</span> move &nbsp; <span class="kbd">E</span> rotate &nbsp; ' +
+        '<span class="kbd">R</span> resize<br>' +
+        '<span class="kbd">1</span>–<span class="kbd">6</span> views &nbsp; ' +
         '<span class="kbd">F</span> fit &nbsp; <span class="kbd">G</span> grid &nbsp; ' +
-        '<span class="kbd">O</span> orthographic',
+        '<span class="kbd">O</span> ortho<br>' +
+        '<span class="kbd">Ctrl</span>+<span class="kbd">Z</span> undo &nbsp; ' +
+        '<span class="kbd">Ctrl</span>+<span class="kbd">D</span> duplicate &nbsp; ' +
+        '<span class="kbd">Del</span> delete',
     );
     return panel;
   }
