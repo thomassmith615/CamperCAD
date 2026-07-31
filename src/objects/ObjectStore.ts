@@ -92,6 +92,25 @@ export class ObjectStore {
   }
 
   /**
+   * Removes every object.
+   *
+   * Used when loading a project. Unlike {@link remove} this disposes the
+   * objects, because loading clears the history too: nothing can bring them
+   * back, so holding their materials would leak them.
+   */
+  clear(): void {
+    const removed = this.all();
+    if (removed.length === 0) return;
+
+    this.items.clear();
+    for (const object of removed) {
+      object.mesh.removeFromParent();
+      object.dispose();
+    }
+    this.bus.emit('objects:removed', { objects: removed });
+  }
+
+  /**
    * Announces that an object changed.
    *
    * Mutation happens on the object itself; this is how the inspector, the

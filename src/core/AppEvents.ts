@@ -79,4 +79,18 @@ export interface AppEvents {
   'measure:changed': {
     measurement: { distance: number; dx: number; dy: number; dz: number } | null;
   };
+
+  /** The open project changed identity, name or save state. */
+  'project:changed': { id: string; name: string; updatedAt: string; dirty: boolean };
+  /**
+   * A project operation failed in a way the user needs to know about — a full
+   * storage quota, an unreadable file, a missing vehicle.
+   */
+  'project:error': { message: string };
+  /**
+   * The user asked for the open dialog, from the keyboard rather than the
+   * toolbar. Raised as an event so the shortcut does not require the core to
+   * know that a dialog exists.
+   */
+  'project:open-requested': undefined;
 }

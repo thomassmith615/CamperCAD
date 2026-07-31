@@ -29,6 +29,7 @@ import { SnapIndicator } from '@/snapping/SnapIndicator';
 import { MeasurementService } from '@/measure/MeasurementService';
 import { DimensionOverlay } from '@/measure/DimensionOverlay';
 import { ScreenLabelLayer } from '@/ui/ScreenLabels';
+import { ProjectService } from '@/project/ProjectService';
 import type { AppEvents } from './AppEvents';
 import type { DisplayUnit } from '@/math/Units';
 
@@ -61,6 +62,7 @@ export class Application {
   readonly tools: ToolManager;
   readonly snapping: SnapEngine;
   readonly measurements: MeasurementService;
+  readonly projects: ProjectService;
 
   private readonly outline = new SelectionOutline();
   private readonly snapIndicator = new SnapIndicator();
@@ -159,6 +161,10 @@ export class Application {
 
     this.bindPointer();
     this.bindKeyboard();
+
+    // Constructed last: it subscribes to every other subsystem's events and
+    // reads their state when capturing, so all of them must already exist.
+    this.projects = new ProjectService(this);
   }
 
   /** The vehicle currently loaded, or null before one is set. */
@@ -471,6 +477,14 @@ export class Application {
             return;
           case 'KeyD':
             this.duplicateSelection();
+            event.preventDefault();
+            return;
+          case 'KeyS':
+            this.projects.save();
+            event.preventDefault();
+            return;
+          case 'KeyO':
+            this.bus.emit('project:open-requested', undefined);
             event.preventDefault();
             return;
           default:

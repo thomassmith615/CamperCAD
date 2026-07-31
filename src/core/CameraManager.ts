@@ -7,6 +7,21 @@ export type ViewPreset = 'iso' | 'top' | 'front' | 'rear' | 'left' | 'right';
 export type ProjectionMode = 'perspective' | 'orthographic';
 
 /**
+ * A saveable viewpoint.
+ *
+ * Stores the camera's position and look-at point rather than a preset name,
+ * because most of the time a user saves a project the camera is somewhere they
+ * orbited to by hand, which no preset describes.
+ */
+export interface CameraState {
+  position: [number, number, number];
+  target: [number, number, number];
+  projection: ProjectionMode;
+  /** Orthographic zoom. Ignored in perspective. */
+  zoom: number;
+}
+
+/**
  * Direction from the look-at target toward the camera, plus the up vector, for
  * each named view.
  *
@@ -213,6 +228,39 @@ export class CameraManager {
       elapsed: 0,
       duration: 0.42,
     };
+  }
+
+  /** Captures the current viewpoint for saving. */
+  captureState(): CameraState {
+    const { position } = this.camera;
+    return {
+      position: [position.x, position.y, position.z],
+      target: [this.target.x, this.target.y, this.target.z],
+      projection: this.mode,
+      zoom: this.orthographicCamera.zoom,
+    };
+  }
+
+  /**
+   * Restores a saved viewpoint.
+   *
+   * Applied without animation: a project opening with a half-second camera
+   * flight reads as the application deciding where to look rather than
+   * returning the user to where they left off.
+   */
+  restoreState(state: CameraState): void {
+    this.tween = null;
+    this.setProjection(state.projection);
+
+    this.target.set(state.target[0], state.target[1], state.target[2]);
+    this.camera.position.set(state.position[0], state.position[1], state.position[2]);
+    this.camera.up.set(0, 1, 0);
+    this.orthographicCamera.zoom = state.zoom;
+
+    this.syncOrthographicFrustum(this.camera.position.distanceTo(this.target));
+    this.camera.lookAt(this.target);
+    this.camera.updateProjectionMatrix();
+    this.preset = null;
   }
 
   /** Clears the active preset after the user orbits or pans manually. */

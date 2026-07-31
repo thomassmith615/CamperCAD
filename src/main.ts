@@ -22,6 +22,11 @@ new StatusBar(mount('statusbar'), app);
 new ViewControls(mount('view-controls'), app);
 
 app.loadVehicle(RAM_PROMASTER_2500_159_HIGH_ROOF);
+
+// Restore whatever was open last. Done after the UI is mounted so the panels
+// receive the events the restore emits.
+app.projects.restoreOrCreate();
+
 app.start();
 
 // Vite replaces the whole module on edit; without this the previous instance

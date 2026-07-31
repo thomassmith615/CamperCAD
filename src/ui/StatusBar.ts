@@ -20,6 +20,7 @@ export class StatusBar {
 
   private lastFpsUpdate = 0;
   private holdingMeasurement = false;
+  private errorHandle = 0;
 
   constructor(host: HTMLElement, app: Application) {
     this.app = app;
@@ -69,6 +70,21 @@ export class StatusBar {
         `ΔX ${formatLength(measurement.dx, unit)}  ` +
         `ΔY ${formatLength(measurement.dy, unit)}  ` +
         `ΔZ ${formatLength(measurement.dz, unit)}`;
+    });
+
+    // Project problems take over the vehicle slot for a few seconds: they are
+    // rare, they matter, and the vehicle is not going anywhere.
+    app.bus.on('project:error', ({ message }) => {
+      window.clearTimeout(this.errorHandle);
+      this.vehicleValue.textContent = message;
+      this.vehicleValue.classList.add('status-item__value--error');
+      this.errorHandle = window.setTimeout(() => {
+        this.vehicleValue.classList.remove('status-item__value--error');
+        const vehicle = this.app.vehicle;
+        this.vehicleValue.textContent = vehicle
+          ? `${vehicle.definition.name} · ${vehicle.definition.variant}`
+          : 'None';
+      }, 6000);
     });
 
     app.bus.on('frame:rendered', ({ fps, triangles }) => this.updatePerformance(fps, triangles));

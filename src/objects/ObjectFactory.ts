@@ -72,6 +72,30 @@ export class ObjectFactory {
     return copy;
   }
 
+  /**
+   * Seeds the name counters from existing objects.
+   *
+   * Called after loading a project so the next box created is `Box 4` rather
+   * than `Box 1`, which would collide with what the user already has.
+   *
+   * @param names Names of the objects now in the design.
+   */
+  adoptNames(names: readonly string[]): void {
+    this.counters.clear();
+
+    for (const [kind, label] of Object.entries(KIND_LABELS) as Array<[ObjectKind, string]>) {
+      let highest = 0;
+      const pattern = new RegExp(`^${label} (\\d+)$`);
+
+      for (const name of names) {
+        const match = name.match(pattern);
+        if (match) highest = Math.max(highest, Number.parseInt(match[1], 10));
+      }
+
+      if (highest > 0) this.counters.set(kind, highest);
+    }
+  }
+
   /** Generates a collision-resistant identifier without a secure context. */
   private static createId(): string {
     return `obj_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;

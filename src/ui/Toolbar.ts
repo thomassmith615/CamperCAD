@@ -3,6 +3,7 @@ import { IMPERIAL_SPACINGS, METRIC_SPACINGS } from '@/scene/GridManager';
 import { formatLength, isMetric, UNIT_LABELS, type DisplayUnit } from '@/math/Units';
 import type { GizmoMode } from '@/selection/TransformGizmo';
 import type { ToolId } from '@/tools/ToolTypes';
+import { ProjectDialog } from './ProjectDialog';
 import { icon } from './icons';
 
 /** Units offered in the toolbar picker, in the order they appear. */
@@ -34,10 +35,14 @@ export class Toolbar {
   private redoButton!: HTMLButtonElement;
   private duplicateButton!: HTMLButtonElement;
   private deleteButton!: HTMLButtonElement;
+  private saveButton!: HTMLButtonElement;
+  private projectLabel!: HTMLElement;
+  private readonly dialog: ProjectDialog;
 
   constructor(host: HTMLElement, app: Application) {
     this.host = host;
     this.app = app;
+    this.dialog = new ProjectDialog(app);
 
     this.host.replaceChildren();
     this.host.append(
@@ -47,12 +52,18 @@ export class Toolbar {
       this.buildEditGroup(),
       this.buildProjectionGroup(),
       this.buildGridGroup(),
-      this.buildViewGroup(),
+      this.buildFileGroup(),
     );
 
     app.bus.on('projection:changed', ({ mode }) => this.syncProjection(mode));
     app.bus.on('grid:changed', ({ visible }) => this.syncGrid(visible));
     app.bus.on('snap:settings', ({ enabled }) => this.snapButton.classList.toggle('is-active', enabled));
+    app.bus.on('project:changed', ({ name, dirty }) => {
+      this.projectLabel.textContent = dirty ? `${name} *` : name;
+      this.projectLabel.classList.toggle('is-dirty', dirty);
+      this.saveButton.disabled = !dirty;
+    });
+    app.bus.on('project:open-requested', () => this.dialog.open());
     app.bus.on('units:changed', ({ unit }) => this.rebuildSpacingOptions(unit));
     app.bus.on('tool:changed', ({ tool }) => this.syncTool(tool));
     app.bus.on('gizmo:changed', ({ mode, enabled, multiSelect }) => this.syncGizmo(mode, enabled, multiSelect));
@@ -73,6 +84,8 @@ export class Toolbar {
     this.snapButton.classList.toggle('is-active', app.snapping.settings.enabled);
     this.syncTool('select');
     this.syncGizmo('translate', false, false);
+    this.projectLabel.textContent = app.projects.project.name;
+    this.saveButton.disabled = true;
     this.undoButton.disabled = true;
     this.redoButton.disabled = true;
     this.duplicateButton.disabled = true;
@@ -84,7 +97,7 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.3.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.4.0</span>';
     return brand;
   }
 
@@ -186,12 +199,42 @@ export class Toolbar {
     return group;
   }
 
-  /** Framing action, aligned right. */
-  private buildViewGroup(): HTMLElement {
+  /**
+   * Project actions and the framing button, aligned right.
+   *
+   * The project name doubles as the save indicator: an asterisk while there are
+   * unwritten edits, gone once autosave or an explicit save has run. A separate
+   * status light would be one more thing to look at for information that
+   * belongs next to the name it describes.
+   */
+  private buildFileGroup(): HTMLElement {
     const group = this.groupElement();
     group.classList.add('tool-group--right');
-    group.append(this.button('fit', 'Fit', 'Frame everything — F', () => this.app.fitView()));
+
+    this.projectLabel = document.createElement('span');
+    this.projectLabel.className = 'project-label';
+    this.projectLabel.title = 'Click to rename';
+    this.projectLabel.addEventListener('click', () => this.promptRename());
+
+    this.saveButton = this.iconButton('save', 'Save — Ctrl+S', () => this.app.projects.save());
+
+    group.append(
+      this.button('fit', 'Fit', 'Frame everything — F', () => this.app.fitView()),
+      this.projectLabel,
+      this.iconButton('filePlus', 'New project', () => this.app.projects.newProject()),
+      this.iconButton('folder', 'Open project — Ctrl+O', () => this.dialog.open()),
+      this.saveButton,
+      this.iconButton('download', 'Export to a file', () => this.app.projects.exportToFile()),
+      this.iconButton('upload', 'Import from a file', () => void this.app.projects.importFromFile()),
+    );
     return group;
+  }
+
+  /** Renames the project through a prompt, the one place a prompt fits. */
+  private promptRename(): void {
+    const current = this.app.projects.project.name;
+    const next = window.prompt('Project name', current);
+    if (next !== null) this.app.projects.rename(next);
   }
 
   /**
