@@ -93,4 +93,12 @@ export interface AppEvents {
    * know that a dialog exists.
    */
   'project:open-requested': undefined;
+
+  /** The library drawer opened or closed. */
+  'library:toggled': { open: boolean };
+  /**
+   * The user asked to toggle the library from the keyboard. Raised as an event
+   * so the shortcut does not require the core to know the drawer exists.
+   */
+  'library:requested': undefined;
 }

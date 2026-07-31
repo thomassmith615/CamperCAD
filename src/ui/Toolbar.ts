@@ -4,6 +4,7 @@ import { formatLength, isMetric, UNIT_LABELS, type DisplayUnit } from '@/math/Un
 import type { GizmoMode } from '@/selection/TransformGizmo';
 import type { ToolId } from '@/tools/ToolTypes';
 import { ProjectDialog } from './ProjectDialog';
+import type { LibraryPanel } from './LibraryPanel';
 import { icon } from './icons';
 
 /** Units offered in the toolbar picker, in the order they appear. */
@@ -38,11 +39,14 @@ export class Toolbar {
   private saveButton!: HTMLButtonElement;
   private projectLabel!: HTMLElement;
   private readonly dialog: ProjectDialog;
+  private readonly libraryPanel: LibraryPanel;
+  private libraryButton!: HTMLButtonElement;
 
-  constructor(host: HTMLElement, app: Application) {
+  constructor(host: HTMLElement, app: Application, libraryPanel: LibraryPanel) {
     this.host = host;
     this.app = app;
     this.dialog = new ProjectDialog(app);
+    this.libraryPanel = libraryPanel;
 
     this.host.replaceChildren();
     this.host.append(
@@ -64,6 +68,8 @@ export class Toolbar {
       this.saveButton.disabled = !dirty;
     });
     app.bus.on('project:open-requested', () => this.dialog.open());
+    app.bus.on('library:requested', () => this.libraryPanel.setOpen(!this.libraryPanel.isOpen));
+    app.bus.on('library:toggled', ({ open }) => this.libraryButton.classList.toggle('is-active', open));
     app.bus.on('units:changed', ({ unit }) => this.rebuildSpacingOptions(unit));
     app.bus.on('tool:changed', ({ tool }) => this.syncTool(tool));
     app.bus.on('gizmo:changed', ({ mode, enabled, multiSelect }) => this.syncGizmo(mode, enabled, multiSelect));
@@ -97,7 +103,7 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.4.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.5.0</span>';
     return brand;
   }
 
@@ -111,11 +117,15 @@ export class Toolbar {
       this.app.setTool('measure'),
     );
 
+    this.libraryButton = this.button('library', 'Library', 'Browse components — L', () =>
+      this.libraryPanel.setOpen(!this.libraryPanel.isOpen),
+    );
+
     this.toolButtons.set('select', select);
     this.toolButtons.set('create-box', box);
     this.toolButtons.set('measure', measure);
 
-    group.append(select, box, measure);
+    group.append(this.libraryButton, select, box, measure);
     return group;
   }
 

@@ -30,6 +30,10 @@ import { MeasurementService } from '@/measure/MeasurementService';
 import { DimensionOverlay } from '@/measure/DimensionOverlay';
 import { ScreenLabelLayer } from '@/ui/ScreenLabels';
 import { ProjectService } from '@/project/ProjectService';
+import { ObjectLibrary } from '@/library/ObjectLibrary';
+import { PlacementSolver } from '@/library/PlacementSolver';
+import type { LibraryItem } from '@/library/LibraryTypes';
+import { PlaceItemTool } from '@/tools/PlaceItemTool';
 import type { AppEvents } from './AppEvents';
 import type { DisplayUnit } from '@/math/Units';
 
@@ -63,12 +67,15 @@ export class Application {
   readonly snapping: SnapEngine;
   readonly measurements: MeasurementService;
   readonly projects: ProjectService;
+  readonly library = new ObjectLibrary();
+  readonly placement: PlacementSolver;
 
   private readonly outline = new SelectionOutline();
   private readonly snapIndicator = new SnapIndicator();
   private readonly dimensions = new DimensionOverlay();
   private readonly labels: ScreenLabelLayer;
   private readonly measureTool: MeasureTool;
+  private readonly placeTool: PlaceItemTool;
   private readonly clock = new THREE.Clock();
   private readonly raycaster = new THREE.Raycaster();
   private readonly floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -102,6 +109,7 @@ export class Application {
     this.selection = new SelectionManager(this.bus);
     this.snapping = new SnapEngine(this.objects, this.grid);
     this.measurements = new MeasurementService(this.objects);
+    this.placement = new PlacementSolver(this.objects);
 
     // Labels live in their own pointer-transparent layer above the canvas so
     // they never intercept a click meant for the model.
@@ -140,6 +148,20 @@ export class Application {
         this.tools,
       ),
     );
+
+    this.placeTool = new PlaceItemTool(
+      this.renderer.domElement,
+      this.scene,
+      this.cameras,
+      this.grid,
+      this.factory,
+      this.objects,
+      this.history,
+      this.selection,
+      this.placement,
+      this.tools,
+    );
+    this.tools.register(this.placeTool);
 
     this.measureTool = new MeasureTool(
       this.renderer.domElement,
@@ -198,6 +220,7 @@ export class Application {
 
     this.snapping.setVehicle(model);
     this.measurements.setVehicle(model);
+    this.placement.setVehicle(model);
 
     this.bus.emit('vehicle:loaded', { vehicle: model });
     return model;
@@ -252,6 +275,11 @@ export class Application {
   /** Activates a tool by identifier. */
   setTool(tool: ToolId): void {
     this.tools.activate(tool);
+  }
+
+  /** Arms the placement tool with a library item and activates it. */
+  beginPlacing(item: LibraryItem): void {
+    this.placeTool.beginPlacing(item);
   }
 
   /** Turns snapping on or off. */
@@ -519,6 +547,9 @@ export class Application {
           break;
         case 'KeyM':
           this.setTool('measure');
+          break;
+        case 'KeyL':
+          this.bus.emit('library:requested', undefined);
           break;
         case 'KeyW':
           this.setGizmoMode('translate');

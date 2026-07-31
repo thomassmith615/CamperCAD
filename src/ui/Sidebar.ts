@@ -202,7 +202,7 @@ export class Sidebar {
       'Left-drag to select · middle-drag to orbit · right-drag to pan · scroll to zoom<br>' +
         'Hold <span class="kbd">Space</span> to orbit with the left button.<br><br>' +
         '<span class="kbd">Q</span> select &nbsp; <span class="kbd">B</span> box &nbsp; ' +
-        '<span class="kbd">M</span> measure &nbsp; ' +
+        '<span class="kbd">M</span> measure &nbsp; <span class="kbd">L</span> library &nbsp; ' +
         '<span class="kbd">W</span> move &nbsp; <span class="kbd">E</span> rotate &nbsp; ' +
         '<span class="kbd">R</span> resize<br>' +
         '<span class="kbd">1</span>–<span class="kbd">6</span> views &nbsp; ' +

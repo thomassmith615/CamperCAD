@@ -1,0 +1,161 @@
+import type { LibraryItem } from '../LibraryTypes';
+
+/**
+ * Cabinetry, sleeping platforms and storage.
+ *
+ * Dimensions follow conversion practice rather than residential cabinet
+ * standards. A van galley runs shallower than a house kitchen because 24" of
+ * counter depth plus a walkway does not fit between ProMaster walls, and upper
+ * cabinets are kept narrow enough to clear the roof curve where it starts
+ * cutting in.
+ *
+ * Bed sizes are the mattress dimensions, not the frame. The platform is a
+ * separate item because the two are built separately and weigh very different
+ * amounts.
+ */
+export const CABINETRY_ITEMS: readonly LibraryItem[] = [
+  {
+    id: 'base-cabinet-24',
+    name: 'Base cabinet, 24"',
+    category: 'cabinetry',
+    description: 'Standard galley base unit with a 20" working depth.',
+    kind: 'box',
+    dimensions: [24, 34, 20],
+    color: '#c9a227',
+    weight: 45,
+    price: 0,
+    placement: 'floor',
+    notes:
+      'Counter height of 34" suits most people standing; drop to 32" if you are under 5\'6". Depth is 20" rather than a residential 24" to preserve walkway width.',
+    keywords: ['galley', 'kitchen', 'carcass', 'lower'],
+  },
+  {
+    id: 'base-cabinet-36',
+    name: 'Base cabinet, 36"',
+    category: 'cabinetry',
+    description: 'Wider galley base unit, room for a sink or a two-burner hob.',
+    kind: 'box',
+    dimensions: [36, 34, 20],
+    color: '#c9a227',
+    weight: 62,
+    price: 0,
+    placement: 'floor',
+    notes: 'Fits a bar sink and a two-burner cooktop side by side with roughly 4" of counter between them.',
+    keywords: ['galley', 'kitchen', 'carcass', 'lower', 'sink'],
+  },
+  {
+    id: 'upper-cabinet-30',
+    name: 'Upper cabinet, 30"',
+    category: 'cabinetry',
+    description: 'Overhead locker sized to clear the roof curve.',
+    kind: 'box',
+    dimensions: [30, 14, 12],
+    color: '#b8963f',
+    weight: 28,
+    price: 0,
+    placement: 'wall',
+    notes:
+      'Keep the top edge below about 62" or the roof curve will force the back of the cabinet away from the wall. Doors want positive latches, not magnets.',
+    keywords: ['overhead', 'locker', 'upper', 'wall'],
+  },
+  {
+    id: 'tall-pantry',
+    name: 'Tall pantry',
+    category: 'cabinetry',
+    description: 'Full-height narrow cabinet for dry goods or a wardrobe.',
+    kind: 'box',
+    dimensions: [18, 60, 20],
+    color: '#c9a227',
+    weight: 70,
+    price: 0,
+    placement: 'floor',
+    notes: 'At 60" tall this leans on the wall curve; scribe the back edge or expect a gap at the top.',
+    keywords: ['pantry', 'wardrobe', 'closet', 'tall'],
+  },
+  {
+    id: 'countertop-36',
+    name: 'Countertop, 36"',
+    category: 'cabinetry',
+    description: 'Butcher block or laminate slab, 1.5" thick.',
+    kind: 'box',
+    dimensions: [36, 1.5, 21],
+    color: '#8a6a3b',
+    weight: 22,
+    price: 0,
+    placement: 'surface',
+    notes: 'Overhangs the cabinet by 1" at the front. Butcher block at this size is about 22 lb; laminate is roughly half.',
+    keywords: ['counter', 'worktop', 'butcher block', 'slab'],
+  },
+  {
+    id: 'bed-platform-full',
+    name: 'Bed platform, full',
+    category: 'sleeping',
+    description: 'Fixed platform sized for a 54" × 75" mattress.',
+    kind: 'box',
+    dimensions: [54, 3, 75],
+    color: '#a98b52',
+    weight: 55,
+    price: 0,
+    placement: 'free',
+    notes:
+      'A full mattress will not fit crosswise in a ProMaster: the van is 70.5" wide at the floor. Run it lengthwise, or use the 48" three-quarter size crosswise if the walls allow at your platform height.',
+    keywords: ['bed', 'platform', 'frame', 'double', 'full'],
+  },
+  {
+    id: 'mattress-full',
+    name: 'Mattress, full',
+    category: 'sleeping',
+    description: '54" × 75" mattress, 6" foam.',
+    kind: 'box',
+    dimensions: [54, 6, 75],
+    color: '#cfc6b4',
+    weight: 45,
+    price: 0,
+    placement: 'surface',
+    notes: 'Check the height above the platform against your ceiling: 6" of foam plus a 3" platform eats 9" of headroom.',
+    keywords: ['mattress', 'foam', 'bed', 'double'],
+  },
+  {
+    id: 'mattress-narrow',
+    name: 'Mattress, 48" crosswise',
+    category: 'sleeping',
+    description: 'Three-quarter width mattress that fits across the van.',
+    kind: 'box',
+    dimensions: [72, 6, 48],
+    color: '#cfc6b4',
+    weight: 38,
+    price: 0,
+    placement: 'surface',
+    notes:
+      'A 72" sleeping length fits across a ProMaster only above wheel-well height, where the walls are widest. Below about 24" the van narrows and this will not sit flat.',
+    keywords: ['mattress', 'crosswise', 'sideways', 'three quarter'],
+  },
+  {
+    id: 'garage-storage',
+    name: 'Garage storage box',
+    category: 'storage',
+    description: 'Under-bed gear bay with a lift-up or slide-out front.',
+    kind: 'box',
+    dimensions: [60, 22, 40],
+    color: '#8f8577',
+    weight: 60,
+    price: 0,
+    placement: 'floor',
+    notes: 'Sits under a raised bed. Keep the opening height above 20" or bikes and totes will not clear the sill.',
+    keywords: ['garage', 'gear', 'under bed', 'bay'],
+  },
+  {
+    id: 'drawer-unit',
+    name: 'Drawer stack',
+    category: 'storage',
+    description: 'Three-drawer unit on full-extension slides.',
+    kind: 'box',
+    dimensions: [21, 28, 20],
+    color: '#c9a227',
+    weight: 52,
+    price: 0,
+    placement: 'floor',
+    notes: 'Full-extension slides need the drawer length plus about 2" of clearance in front to open fully.',
+    keywords: ['drawers', 'slides', 'storage'],
+  },
+];
