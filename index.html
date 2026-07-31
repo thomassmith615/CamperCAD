@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>CamperCAD</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <div id="app" class="app">
+      <header class="app__toolbar" id="toolbar" aria-label="Toolbar"></header>
+
+      <main class="app__viewport" id="viewport">
+        <div class="viewport__overlay">
+          <div class="viewport__views" id="view-controls"></div>
+        </div>
+      </main>
+
+      <aside class="app__sidebar" id="sidebar" aria-label="Inspector"></aside>
+
+      <footer class="app__statusbar" id="statusbar" aria-label="Status"></footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
