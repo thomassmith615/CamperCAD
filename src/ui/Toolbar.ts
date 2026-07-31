@@ -5,6 +5,9 @@ import type { GizmoMode } from '@/selection/TransformGizmo';
 import type { ToolId } from '@/tools/ToolTypes';
 import { ProjectDialog } from './ProjectDialog';
 import type { LibraryPanel } from './LibraryPanel';
+import type { OutlinerPanel } from './OutlinerPanel';
+import { ArrayDialog } from './ArrayDialog';
+import { INPUT_MODE_LABELS, type InputMode } from '@/input/InputSettings';
 import { icon } from './icons';
 
 /** Units offered in the toolbar picker, in the order they appear. */
@@ -41,12 +44,21 @@ export class Toolbar {
   private readonly dialog: ProjectDialog;
   private readonly libraryPanel: LibraryPanel;
   private libraryButton!: HTMLButtonElement;
+  private outlinerButton!: HTMLButtonElement;
+  private groupButton!: HTMLButtonElement;
+  private ungroupButton!: HTMLButtonElement;
+  private arrayButton!: HTMLButtonElement;
+  private inputSelect!: HTMLSelectElement;
+  private readonly outlinerPanel: OutlinerPanel;
+  private readonly arrayDialog: ArrayDialog;
 
-  constructor(host: HTMLElement, app: Application, libraryPanel: LibraryPanel) {
+  constructor(host: HTMLElement, app: Application, libraryPanel: LibraryPanel, outlinerPanel: OutlinerPanel) {
     this.host = host;
     this.app = app;
     this.dialog = new ProjectDialog(app);
     this.libraryPanel = libraryPanel;
+    this.outlinerPanel = outlinerPanel;
+    this.arrayDialog = new ArrayDialog(app);
 
     this.host.replaceChildren();
     this.host.append(
@@ -80,10 +92,21 @@ export class Toolbar {
       this.redoButton.title = canRedo ? `Redo ${redoLabel} — Ctrl+Shift+Z` : 'Nothing to redo';
     });
     app.bus.on('selection:changed', ({ objects }) => {
-      const deletable = objects.some((object) => !object.isLocked);
+      const deletable = objects.some((object) => !app.structure.isLocked(object));
+      const grouped = objects.some((object) => object.get('groupId') !== '');
+
       this.duplicateButton.disabled = objects.length === 0;
+      this.arrayButton.disabled = objects.length === 0;
       this.deleteButton.disabled = !deletable;
+      this.groupButton.disabled = objects.length < 2;
+      this.ungroupButton.disabled = !grouped;
     });
+
+    app.bus.on('input:mode', ({ mode }) => {
+      this.inputSelect.value = mode;
+    });
+    app.bus.on('outliner:requested', () => this.outlinerPanel.setOpen(!this.outlinerPanel.isOpen));
+    app.bus.on('outliner:toggled', ({ open }) => this.outlinerButton.classList.toggle('is-active', open));
 
     this.syncProjection('perspective');
     this.syncGrid(true);
@@ -96,6 +119,9 @@ export class Toolbar {
     this.redoButton.disabled = true;
     this.duplicateButton.disabled = true;
     this.deleteButton.disabled = true;
+    this.arrayButton.disabled = true;
+    this.groupButton.disabled = true;
+    this.ungroupButton.disabled = true;
   }
 
   /** Product mark and version. */
@@ -103,7 +129,7 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.5.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.6.0</span>';
     return brand;
   }
 
@@ -121,11 +147,15 @@ export class Toolbar {
       this.libraryPanel.setOpen(!this.libraryPanel.isOpen),
     );
 
+    this.outlinerButton = this.iconButton('outliner', 'Outliner — Shift+L', () =>
+      this.outlinerPanel.setOpen(!this.outlinerPanel.isOpen),
+    );
+
     this.toolButtons.set('select', select);
     this.toolButtons.set('create-box', box);
     this.toolButtons.set('measure', measure);
 
-    group.append(this.libraryButton, select, box, measure);
+    group.append(this.libraryButton, this.outlinerButton, select, box, measure);
     return group;
   }
 
@@ -154,7 +184,19 @@ export class Toolbar {
     this.duplicateButton = this.iconButton('duplicate', 'Duplicate — Ctrl+D', () => this.app.duplicateSelection());
     this.deleteButton = this.iconButton('trash', 'Delete — Del', () => this.app.deleteSelection());
 
-    group.append(this.undoButton, this.redoButton, this.duplicateButton, this.deleteButton);
+    this.arrayButton = this.iconButton('array', 'Array duplicate', () => this.arrayDialog.open());
+    this.groupButton = this.iconButton('group', 'Group — Ctrl+G', () => this.app.groupSelection());
+    this.ungroupButton = this.iconButton('ungroup', 'Ungroup — Ctrl+Shift+G', () => this.app.ungroupSelection());
+
+    group.append(
+      this.undoButton,
+      this.redoButton,
+      this.duplicateButton,
+      this.arrayButton,
+      this.groupButton,
+      this.ungroupButton,
+      this.deleteButton,
+    );
     return group;
   }
 
@@ -205,7 +247,21 @@ export class Toolbar {
     unitSelect.value = this.app.unit;
     unitSelect.addEventListener('change', () => this.app.setUnit(unitSelect.value as DisplayUnit));
 
-    group.append(this.gridButton, this.snapButton, this.spacingSelect, unitSelect);
+    this.inputSelect = document.createElement('select');
+    this.inputSelect.className = 'field-select';
+    this.inputSelect.title = 'Input device — changes what a left drag does';
+    for (const mode of ['mouse', 'trackpad'] as InputMode[]) {
+      const option = document.createElement('option');
+      option.value = mode;
+      option.textContent = INPUT_MODE_LABELS[mode];
+      this.inputSelect.append(option);
+    }
+    this.inputSelect.value = this.app.input.current;
+    this.inputSelect.addEventListener('change', () =>
+      this.app.setInputMode(this.inputSelect.value as InputMode),
+    );
+
+    group.append(this.gridButton, this.snapButton, this.spacingSelect, unitSelect, this.inputSelect);
     return group;
   }
 

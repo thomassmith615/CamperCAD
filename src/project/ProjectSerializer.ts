@@ -2,6 +2,7 @@ import type { DisplayUnit } from '@/math/Units';
 import type { CameraState } from '@/core/CameraManager';
 import type { ObjectData, ObjectKind } from '@/objects/ObjectTypes';
 import { PROJECT_SCHEMA, ProjectFormatError, type ProjectData } from './ProjectTypes';
+import { DEFAULT_LAYERS, DEFAULT_LAYER_ID, type GroupData, type LayerData } from '@/objects/StructureTypes';
 
 /** Units a project may declare. */
 const UNITS: readonly DisplayUnit[] = ['in', 'ft-in', 'mm', 'cm', 'm'];
@@ -113,12 +114,48 @@ export class ProjectSerializer {
       snapping: ProjectSerializer.readSnapping(raw.snapping),
       camera: ProjectSerializer.readCamera(raw.camera),
       objects: raw.objects.map((entry, index) => ProjectSerializer.readObject(entry, index)),
+      layers: ProjectSerializer.readLayers(raw.layers),
+      groups: ProjectSerializer.readGroups(raw.groups),
     };
   }
 
   /** Generates an identifier for a project without a secure context. */
   static createId(): string {
     return `prj_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  /**
+   * Reads the layer list.
+   *
+   * A file with no layers is a file saved before layers existed, so it gets the
+   * defaults; its objects fall back to the default layer individually. This is
+   * exactly the case the lenient-about-missing rule was written for.
+   */
+  private static readLayers(value: unknown): LayerData[] {
+    if (!Array.isArray(value) || value.length === 0) {
+      return DEFAULT_LAYERS.map((layer) => ({ ...layer }));
+    }
+
+    const layers = value.filter(isRecord).map((entry, index) => ({
+      id: str(entry.id, `layer-${index}`),
+      name: str(entry.name, `Layer ${index + 1}`),
+      visible: bool(entry.visible, true),
+      locked: bool(entry.locked, false),
+      color: str(entry.color, '#e2a44a'),
+    }));
+
+    return layers.length > 0 ? layers : DEFAULT_LAYERS.map((layer) => ({ ...layer }));
+  }
+
+  /** Reads the group list, discarding malformed entries. */
+  private static readGroups(value: unknown): GroupData[] {
+    if (!Array.isArray(value)) return [];
+
+    return value.filter(isRecord).map((entry, index) => ({
+      id: str(entry.id, `group-${index}`),
+      name: str(entry.name, `Group ${index + 1}`),
+      collapsed: bool(entry.collapsed, true),
+    }));
   }
 
   private static readUnit(value: unknown): DisplayUnit {
@@ -178,6 +215,8 @@ export class ProjectSerializer {
       notes: typeof value.notes === 'string' ? value.notes : '',
       locked: bool(value.locked, false),
       visible: bool(value.visible, true),
+      layerId: str(value.layerId, DEFAULT_LAYER_ID),
+      groupId: typeof value.groupId === 'string' ? value.groupId : '',
     };
   }
 }

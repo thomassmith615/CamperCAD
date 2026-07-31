@@ -4,6 +4,8 @@ import type { ObjectStore } from '@/objects/ObjectStore';
 import type { SceneObject } from '@/objects/SceneObject';
 import type { SelectionManager, SelectionMode } from '@/selection/SelectionManager';
 import type { TransformGizmo } from '@/selection/TransformGizmo';
+import type { InputSettings } from '@/input/InputSettings';
+import type { ControlsManager } from '@/core/ControlsManager';
 import type { Tool, ToolId } from './ToolTypes';
 
 /** Pixels of movement before a press is treated as a drag rather than a click. */
@@ -12,11 +14,11 @@ const DRAG_THRESHOLD = 4;
 /**
  * The default tool: picking and marquee selection.
  *
- * The left mouse button is reserved for selection rather than orbiting, which
- * is why {@link ControlsManager} moves orbit onto the middle button. Every CAD
- * application makes this trade because selecting is the action performed
- * hundreds of times per session; holding space restores left-drag orbit for
- * trackpad users who have no middle button.
+ * What a left drag does depends on the input mode. With a mouse it marquees,
+ * because the middle button is free to orbit. With a trackpad a plain drag
+ * orbits — there is no middle button to give it to — and a marquee requires
+ * Shift or Ctrl/Cmd. A click that does not move picks in both modes, so tapping
+ * an object never depends on which mode is active.
  *
  * Marquee selection tests projected bounds rather than object centres, so a
  * long cabinet is caught by a band that crosses any part of it — the behaviour
@@ -33,6 +35,8 @@ export class SelectTool implements Tool {
   private readonly selection: SelectionManager;
   private readonly gizmo: TransformGizmo;
   private readonly canvas: HTMLCanvasElement;
+  private readonly input: InputSettings;
+  private readonly orbit: ControlsManager;
   private readonly marquee: HTMLElement;
   private readonly raycaster = new THREE.Raycaster();
 
@@ -40,6 +44,7 @@ export class SelectTool implements Tool {
   private startY = 0;
   private dragging = false;
   private pressed = false;
+  private marqueeAllowed = true;
 
   /**
    * @param host Viewport element the rubber band is drawn into. It must be a
@@ -52,7 +57,11 @@ export class SelectTool implements Tool {
     store: ObjectStore,
     selection: SelectionManager,
     gizmo: TransformGizmo,
+    input: InputSettings,
+    orbit: ControlsManager,
   ) {
+    this.input = input;
+    this.orbit = orbit;
     this.canvas = canvas;
     this.cameras = cameras;
     this.store = store;
@@ -67,8 +76,14 @@ export class SelectTool implements Tool {
 
   onPointerDown(event: PointerEvent): void {
     if (event.button !== 0 || this.gizmo.isEngaged) return;
+
     this.pressed = true;
     this.dragging = false;
+    this.marqueeAllowed = this.input.allowsMarquee({
+      shift: event.shiftKey,
+      accel: event.ctrlKey || event.metaKey,
+      space: this.orbit.isSpaceHeld,
+    });
     this.startX = event.clientX;
     this.startY = event.clientY;
   }
@@ -79,8 +94,20 @@ export class SelectTool implements Tool {
     if (!this.dragging) {
       const travelled = Math.hypot(event.clientX - this.startX, event.clientY - this.startY);
       if (travelled < DRAG_THRESHOLD) return;
+
+      // In trackpad mode a plain drag belongs to the camera, so the press is
+      // abandoned rather than turned into a marquee or, worse, a stray pick on
+      // release.
+      if (!this.marqueeAllowed) {
+        this.pressed = false;
+        return;
+      }
+
       this.dragging = true;
       this.marquee.hidden = false;
+      // A modifier-drag marquee in trackpad mode would otherwise orbit
+      // underneath the rubber band.
+      this.orbit.suspend('marquee');
     }
 
     const rect = this.canvas.getBoundingClientRect();
@@ -102,6 +129,7 @@ export class SelectTool implements Tool {
     if (this.dragging) {
       this.marquee.hidden = true;
       this.dragging = false;
+      this.orbit.resume('marquee');
       this.selection.select(this.objectsInBand(event), mode);
       return;
     }
@@ -113,6 +141,7 @@ export class SelectTool implements Tool {
   onCancel(): void {
     this.pressed = false;
     this.dragging = false;
+    this.marqueeAllowed = true;
     this.marquee.hidden = true;
   }
 

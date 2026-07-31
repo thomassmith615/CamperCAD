@@ -6,6 +6,7 @@ import { Sidebar } from '@/ui/Sidebar';
 import { StatusBar } from '@/ui/StatusBar';
 import { ViewControls } from '@/ui/ViewControls';
 import { LibraryPanel } from '@/ui/LibraryPanel';
+import { OutlinerPanel } from '@/ui/OutlinerPanel';
 import { RAM_PROMASTER_2500_159_HIGH_ROOF } from '@/vehicle/catalog/ramProMaster2500_159_HighRoof';
 
 /** Resolves a required mount point, failing loudly if the shell is malformed. */
@@ -18,9 +19,10 @@ function mount(id: string): HTMLElement {
 const app = new Application(mount('viewport'));
 
 const library = new LibraryPanel(app);
-mount('viewport').append(library.element);
+const outliner = new OutlinerPanel(app);
+mount('viewport').append(library.element, outliner.element);
 
-new Toolbar(mount('toolbar'), app, library);
+new Toolbar(mount('toolbar'), app, library, outliner);
 new Sidebar(mount('sidebar'), app);
 new StatusBar(mount('statusbar'), app);
 new ViewControls(mount('view-controls'), app);

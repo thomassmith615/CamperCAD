@@ -7,6 +7,8 @@ import type { ObjectPropertyKey } from '@/objects/ObjectTypes';
 import type { GizmoMode } from '@/selection/TransformGizmo';
 import type { ToolId } from '@/tools/ToolTypes';
 import type { AppliedSnap } from '@/snapping/SnapTypes';
+import type { GroupData, LayerData } from '@/objects/StructureTypes';
+import type { InputMode } from '@/input/InputSettings';
 
 /**
  * The application's event vocabulary.
@@ -93,6 +95,15 @@ export interface AppEvents {
    * know that a dialog exists.
    */
   'project:open-requested': undefined;
+
+  /** Layers or groups changed: added, removed, renamed or retoggled. */
+  'structure:changed': { layers: LayerData[]; groups: GroupData[] };
+  /** The outliner opened or closed. */
+  'outliner:toggled': { open: boolean };
+  /** The outliner was toggled from the keyboard. */
+  'outliner:requested': undefined;
+  /** The input device mode changed, whether detected or chosen. */
+  'input:mode': { mode: InputMode };
 
   /** The library drawer opened or closed. */
   'library:toggled': { open: boolean };

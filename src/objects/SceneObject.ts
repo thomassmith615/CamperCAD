@@ -42,6 +42,8 @@ export class SceneObject {
   private price = 0;
   private notes = '';
   private locked = false;
+  private layerId = '';
+  private groupId = '';
 
   /**
    * @param id Stable identifier, unique within the project.
@@ -72,7 +74,13 @@ export class SceneObject {
     return this.label;
   }
 
-  /** True when the object is locked against transformation. */
+  /**
+   * True when the object's own lock flag is set.
+   *
+   * This is the object's individual state. Effective lock also depends on its
+   * layer, which only {@link StructureRegistry} knows about — callers deciding
+   * whether a transform is permitted should ask the registry, not this.
+   */
   get isLocked(): boolean {
     return this.locked;
   }
@@ -154,6 +162,8 @@ export class SceneObject {
       notes: this.notes,
       locked: this.locked,
       visible: this.mesh.visible,
+      layerId: this.layerId,
+      groupId: this.groupId,
     };
   }
 
@@ -170,6 +180,8 @@ export class SceneObject {
     this.price = data.price;
     this.notes = data.notes;
     this.locked = data.locked;
+    this.layerId = data.layerId ?? '';
+    this.groupId = data.groupId ?? '';
     this.mesh.updateMatrixWorld(true);
   }
 
@@ -214,6 +226,10 @@ export class SceneObject {
         return this.locked;
       case 'visible':
         return this.mesh.visible;
+      case 'layerId':
+        return this.layerId;
+      case 'groupId':
+        return this.groupId;
     }
   }
 
@@ -270,6 +286,12 @@ export class SceneObject {
         break;
       case 'visible':
         this.mesh.visible = Boolean(value);
+        break;
+      case 'layerId':
+        this.layerId = String(value);
+        break;
+      case 'groupId':
+        this.groupId = String(value);
         break;
     }
 

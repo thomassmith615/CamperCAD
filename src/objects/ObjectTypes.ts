@@ -38,6 +38,10 @@ export interface ObjectProperties {
   notes: string;
   locked: boolean;
   visible: boolean;
+  /** Layer the object belongs to. Always a valid layer id. */
+  layerId: string;
+  /** Group the object belongs to, or an empty string when ungrouped. */
+  groupId: string;
 }
 
 /** Name of any editable property. */
@@ -70,6 +74,10 @@ export interface ObjectData {
   notes: string;
   locked: boolean;
   visible: boolean;
+  /** Layer membership. Optional so projects saved before layers still load. */
+  layerId?: string;
+  /** Group membership, empty when ungrouped. */
+  groupId?: string;
 }
 
 /**

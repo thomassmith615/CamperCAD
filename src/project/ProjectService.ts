@@ -1,6 +1,7 @@
 import type { Application } from '@/core/Application';
 import { findVehicle, DEFAULT_VEHICLE } from '@/vehicle/catalog';
 import { FileTransfer } from '@/ui/FileTransfer';
+import { DEFAULT_LAYERS } from '@/objects/StructureTypes';
 import { ProjectSerializer } from './ProjectSerializer';
 import { ProjectStorage, StorageFullError } from './ProjectStorage';
 import {
@@ -50,6 +51,7 @@ export class ProjectService {
     app.bus.on('grid:changed', touch);
     app.bus.on('units:changed', touch);
     app.bus.on('snap:settings', touch);
+    app.bus.on('structure:changed', touch);
 
     // A tab being hidden may never come back, so flush synchronously rather
     // than waiting for the autosave timer.
@@ -213,6 +215,7 @@ export class ProjectService {
       snapping: { ...this.app.snapping.settings },
       camera: this.app.cameras.captureState(),
       objects: this.app.objects.all().map((object) => object.toData()),
+      ...this.app.structure.toData(),
     };
   }
 
@@ -244,8 +247,13 @@ export class ProjectService {
       this.app.objects.clear();
       this.app.history.clear();
 
+      // Structure first: objects reference layers, and their inherited
+      // visibility cannot be resolved until the layers exist.
+      this.app.structure.applyData(project.layers, project.groups);
+
       const objects = project.objects.map((data) => this.app.factory.fromData(data));
       this.app.objects.add(objects);
+      this.app.structure.refreshVisibility();
       this.app.factory.adoptNames(objects.map((object) => object.name));
 
       this.app.setUnit(project.units);
@@ -301,6 +309,8 @@ export class ProjectService {
       snapping: { enabled: true, tolerance: 1.5 },
       camera: { position: [220, 150, 260], target: [0, 30, 0], projection: 'perspective', zoom: 1 },
       objects: [],
+      layers: DEFAULT_LAYERS.map((layer) => ({ ...layer })),
+      groups: [],
     };
   }
 }

@@ -236,6 +236,7 @@ body {
   position: absolute;
   right: 14px;
   bottom: 14px;
+  transition: right 160ms ease;
   display: grid;
   grid-template-columns: repeat(3, 34px);
   gap: 3px;
@@ -846,6 +847,263 @@ body {
   font-family: var(--mono);
   font-size: 10px;
   color: var(--measure);
+}
+
+/* The outliner occupies the bottom-right corner, where the view cube lives. */
+.app__viewport.has-outliner .viewport__views {
+  right: 292px;
+}
+
+/* --------------------------------------------------------------- outliner */
+
+.outliner {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  width: 268px;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(26, 30, 37, 0.96);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow);
+}
+
+.outliner[hidden] {
+  display: none;
+}
+
+.outliner__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.outliner__title {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.outliner__action {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.outliner__action:hover {
+  color: var(--accent);
+  border-color: rgba(226, 164, 74, 0.4);
+}
+
+.outliner__close {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.outliner__close:hover {
+  background: var(--bg-2);
+  color: var(--text);
+}
+
+.outliner__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 6px 12px;
+}
+
+.outliner-layer + .outliner-layer {
+  margin-top: 4px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 4px;
+}
+
+.outliner-layer__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+}
+
+.outliner-layer__swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.outliner-layer__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text);
+}
+
+.outliner-layer__count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.outliner-layer__items {
+  padding-left: 4px;
+}
+
+.outliner-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.outliner-row:hover {
+  background: var(--bg-2);
+}
+
+.outliner-row.is-selected {
+  border-color: rgba(226, 164, 74, 0.35);
+  background: var(--accent-soft);
+}
+
+.outliner-row.is-locked .outliner-row__name {
+  color: var(--text-faint);
+}
+
+.outliner-row--nested {
+  margin-left: 16px;
+}
+
+.outliner-row--group {
+  font-weight: 550;
+}
+
+.outliner-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.outliner-row.is-selected .outliner-row__name {
+  color: var(--text);
+}
+
+.outliner-row__meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.outliner-chevron {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: transform 140ms ease;
+}
+
+.outliner-chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.outliner-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.outliner-icon:hover {
+  background: var(--bg-3);
+  color: var(--text);
+}
+
+.outliner-icon.is-off {
+  color: var(--text-faint);
+  opacity: 0.55;
+}
+
+.outliner-icon--danger:hover {
+  color: var(--danger);
+}
+
+.outliner-rename {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--bg-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.outliner-rename:focus {
+  outline: none;
+}
+
+.outliner-empty {
+  margin: 2px 0 4px 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------ array form */
+
+.array-form .row {
+  grid-template-columns: 104px 1fr;
+}
+
+.array-form .row + .row {
+  margin-top: 8px;
+}
+
+.field-select--full {
+  width: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {

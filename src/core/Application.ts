@@ -34,6 +34,11 @@ import { ObjectLibrary } from '@/library/ObjectLibrary';
 import { PlacementSolver } from '@/library/PlacementSolver';
 import type { LibraryItem } from '@/library/LibraryTypes';
 import { PlaceItemTool } from '@/tools/PlaceItemTool';
+import { StructureRegistry } from '@/objects/StructureRegistry';
+import { ArrayBuilder } from '@/objects/ArrayBuilder';
+import type { ArrayOptions } from '@/objects/StructureTypes';
+import { AssignLayerCommand, GroupCommand, UngroupCommand } from '@/commands/StructureCommands';
+import { InputSettings, type InputMode } from '@/input/InputSettings';
 import type { AppEvents } from './AppEvents';
 import type { DisplayUnit } from '@/math/Units';
 
@@ -69,6 +74,9 @@ export class Application {
   readonly projects: ProjectService;
   readonly library = new ObjectLibrary();
   readonly placement: PlacementSolver;
+  readonly structure: StructureRegistry;
+  readonly input = new InputSettings();
+  private readonly arrays: ArrayBuilder;
 
   private readonly outline = new SelectionOutline();
   private readonly snapIndicator = new SnapIndicator();
@@ -96,7 +104,7 @@ export class Application {
     this.renderer = new RendererManager(host);
     this.scene = new SceneManager();
     this.cameras = new CameraManager(this.renderer.aspect);
-    this.controls = new ControlsManager(this.cameras, this.renderer.domElement);
+    this.controls = new ControlsManager(this.cameras, this.renderer.domElement, this.input);
     this.grid = new GridManager(1);
 
     this.scene.add('helpers', this.grid.group);
@@ -110,6 +118,21 @@ export class Application {
     this.snapping = new SnapEngine(this.objects, this.grid);
     this.measurements = new MeasurementService(this.objects);
     this.placement = new PlacementSolver(this.objects);
+    this.structure = new StructureRegistry(this.objects, this.bus);
+    this.arrays = new ArrayBuilder(this.factory);
+
+    this.selection.setGroupExpander((objects) => this.structure.expandToGroups(objects));
+    this.disposers.push(this.input.onChange((mode) => this.bus.emit('input:mode', { mode })));
+
+    // New objects join the current default layer, and deletions can orphan a
+    // group, so both are reconciled as membership changes.
+    this.bus.on('objects:added', ({ objects }) => {
+      for (const object of objects) {
+        if (object.get('layerId') === '') object.set('layerId', this.structure.defaultLayerId);
+      }
+      this.structure.refreshVisibility();
+    });
+    this.bus.on('objects:removed', () => this.structure.pruneGroups());
 
     // Labels live in their own pointer-transparent layer above the canvas so
     // they never intercept a click meant for the model.
@@ -133,7 +156,16 @@ export class Application {
 
     this.tools = new ToolManager(this.renderer.domElement, this.bus);
     this.tools.register(
-      new SelectTool(host, this.renderer.domElement, this.cameras, this.objects, this.selection, this.gizmo),
+      new SelectTool(
+        host,
+        this.renderer.domElement,
+        this.cameras,
+        this.objects,
+        this.selection,
+        this.gizmo,
+        this.input,
+        this.controls,
+      ),
     );
     this.tools.register(
       new CreateBoxTool(
@@ -172,6 +204,8 @@ export class Application {
       this.bus,
     );
     this.tools.register(this.measureTool);
+
+    this.gizmo.setLockPredicate((object) => this.structure.isLocked(object));
 
     this.bus.on('selection:changed', ({ objects }) => {
       this.outline.setSelection(objects);
@@ -277,6 +311,69 @@ export class Application {
     this.tools.activate(tool);
   }
 
+  /** Groups the current selection. */
+  groupSelection(): void {
+    const objects = this.selection.objects;
+    if (objects.length < 2) return;
+    this.history.execute(new GroupCommand(this.structure, objects));
+  }
+
+  /** Dissolves a group by id. */
+  ungroup(groupId: string): void {
+    this.history.execute(new UngroupCommand(this.structure, groupId));
+  }
+
+  /** Dissolves every group represented in the current selection. */
+  ungroupSelection(): void {
+    const ids = new Set(
+      this.selection.objects.map((object) => object.get('groupId')).filter((id) => id !== ''),
+    );
+    for (const id of ids) this.ungroup(id);
+  }
+
+  /** Moves the current selection onto a layer. */
+  assignSelectionToLayer(layerId: string): void {
+    const objects = this.selection.objects;
+    if (objects.length === 0) return;
+    this.history.execute(new AssignLayerCommand(this.structure, objects, layerId));
+  }
+
+  /**
+   * Total length a proposed array would occupy, including the original.
+   *
+   * Exposed so the array dialog can report the run length before committing,
+   * without duplicating the spacing arithmetic.
+   */
+  arrayRunLength(options: ArrayOptions): number {
+    const sources = this.selection.objects;
+    if (sources.length === 0) return 0;
+
+    const bounds = new THREE.Box3();
+    for (const source of sources) bounds.union(source.boundingBox());
+    if (bounds.isEmpty()) return 0;
+
+    const extent = bounds.max[options.axis] - bounds.min[options.axis];
+    const step = options.mode === 'spacing' ? options.distance : extent + options.distance;
+    return extent + Math.abs(step) * Math.max(0, Math.floor(options.count));
+  }
+
+  /** Repeats the current selection along an axis. */
+  arrayDuplicate(options: ArrayOptions): void {
+    const sources = this.selection.objects;
+    if (sources.length === 0) return;
+
+    const copies = this.arrays.build(sources, options);
+    if (copies.length === 0) return;
+
+    this.history.execute(new AddObjectCommand(this.objects, copies, `Array ${copies.length} objects`));
+    this.selection.select(copies, 'replace');
+  }
+
+  /** Sets the input device mode explicitly. */
+  setInputMode(mode: InputMode): void {
+    this.input.setMode(mode);
+  }
+
   /** Arms the placement tool with a library item and activates it. */
   beginPlacing(item: LibraryItem): void {
     this.placeTool.beginPlacing(item);
@@ -317,7 +414,7 @@ export class Application {
 
   /** Deletes every unlocked object in the selection. */
   deleteSelection(): void {
-    const removable = this.selection.objects.filter((object) => !object.isLocked);
+    const removable = this.selection.objects.filter((object) => !this.structure.isLocked(object));
     if (removable.length === 0) return;
     this.history.execute(new RemoveObjectCommand(this.objects, removable));
   }
@@ -488,8 +585,12 @@ export class Application {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTyping(event.target)) return;
 
-      // Holding Alt releases snapping for the duration of a drag.
-      if (event.key === 'Alt') this.snapping.setSuspended(true);
+      // Alt releases snapping for a drag, and reaches inside a group for a
+      // pick. Both are "let me do the thing the assistance is preventing".
+      if (event.key === 'Alt') {
+        this.snapping.setSuspended(true);
+        this.selection.setBypassGroups(true);
+      }
 
       const accel = event.metaKey || event.ctrlKey;
       if (accel) {
@@ -513,6 +614,11 @@ export class Application {
             return;
           case 'KeyO':
             this.bus.emit('project:open-requested', undefined);
+            event.preventDefault();
+            return;
+          case 'KeyG':
+            if (event.shiftKey) this.ungroupSelection();
+            else this.groupSelection();
             event.preventDefault();
             return;
           default:
@@ -549,7 +655,8 @@ export class Application {
           this.setTool('measure');
           break;
         case 'KeyL':
-          this.bus.emit('library:requested', undefined);
+          if (event.shiftKey) this.bus.emit('outliner:requested', undefined);
+          else this.bus.emit('library:requested', undefined);
           break;
         case 'KeyW':
           this.setGizmoMode('translate');
@@ -569,7 +676,7 @@ export class Application {
           this.selection.clear();
           break;
         case 'Space':
-          this.controls.setOrbitOnLeft(true);
+          this.controls.setSpaceHeld(true);
           break;
         default:
           return;
@@ -578,15 +685,19 @@ export class Application {
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === 'Space') this.controls.setOrbitOnLeft(false);
-      if (event.key === 'Alt') this.snapping.setSuspended(false);
+      if (event.code === 'Space') this.controls.setSpaceHeld(false);
+      if (event.key === 'Alt') {
+        this.snapping.setSuspended(false);
+        this.selection.setBypassGroups(false);
+      }
     };
 
     // A held modifier is lost when the window loses focus, so clear both rather
     // than leaving the app stuck in a temporary mode the user cannot see.
     const onBlur = () => {
-      this.controls.setOrbitOnLeft(false);
+      this.controls.setSpaceHeld(false);
       this.snapping.setSuspended(false);
+      this.selection.setBypassGroups(false);
     };
 
     window.addEventListener('keydown', onKeyDown);

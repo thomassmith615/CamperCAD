@@ -203,6 +203,7 @@ export class Sidebar {
         'Hold <span class="kbd">Space</span> to orbit with the left button.<br><br>' +
         '<span class="kbd">Q</span> select &nbsp; <span class="kbd">B</span> box &nbsp; ' +
         '<span class="kbd">M</span> measure &nbsp; <span class="kbd">L</span> library &nbsp; ' +
+        '<span class="kbd">Shift</span>+<span class="kbd">L</span> outliner &nbsp; ' +
         '<span class="kbd">W</span> move &nbsp; <span class="kbd">E</span> rotate &nbsp; ' +
         '<span class="kbd">R</span> resize<br>' +
         '<span class="kbd">1</span>–<span class="kbd">6</span> views &nbsp; ' +
@@ -210,8 +211,9 @@ export class Sidebar {
         '<span class="kbd">O</span> ortho<br>' +
         '<span class="kbd">Ctrl</span>+<span class="kbd">Z</span> undo &nbsp; ' +
         '<span class="kbd">Ctrl</span>+<span class="kbd">D</span> duplicate &nbsp; ' +
-        '<span class="kbd">Del</span> delete<br><br>' +
-        'Hold <span class="kbd">Alt</span> while dragging to place freely without snapping.',
+        '<span class="kbd">Del</span> delete &nbsp; ' +
+        '<span class="kbd">Ctrl</span>+<span class="kbd">G</span> group<br><br>' +
+        'Hold <span class="kbd">Alt</span> to drag without snapping, or to select one object inside a group.',
     );
     return panel;
   }

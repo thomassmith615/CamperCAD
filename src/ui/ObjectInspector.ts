@@ -30,6 +30,8 @@ export class ObjectInspector {
   private readonly colorField: ColorField;
   private readonly notesField: NotesField;
   private readonly numberFields = new Map<ObjectPropertyKey, NumberField>();
+  private readonly layerSelect: HTMLSelectElement;
+  private readonly groupReadout: HTMLElement;
   private readonly lockToggle: HTMLInputElement;
   private readonly visibleToggle: HTMLInputElement;
   private readonly footprint: HTMLElement;
@@ -45,6 +47,15 @@ export class ObjectInspector {
 
     this.lockToggle = identity.addToggle('Locked', false, (checked) => this.commit('locked', checked));
     this.visibleToggle = identity.addToggle('Visible', true, (checked) => this.commit('visible', checked));
+
+    this.layerSelect = document.createElement('select');
+    this.layerSelect.className = 'field-select field-select--full';
+    this.layerSelect.addEventListener('change', () => {
+      this.app.assignSelectionToLayer(this.layerSelect.value);
+    });
+    identity.append(ObjectInspector.row('Layer', this.layerSelect));
+
+    this.groupReadout = identity.addReadout('Group', '—');
 
     const dimensions = new Panel('Dimensions');
     this.addNumberField(dimensions, 'Width', 'width', 'length');
@@ -72,6 +83,7 @@ export class ObjectInspector {
     app.bus.on('object:changed', ({ object }) => {
       if (object === this.target) this.refresh();
     });
+    app.bus.on('structure:changed', () => this.refresh());
     app.bus.on('units:changed', ({ unit }) => {
       for (const field of this.numberFields.values()) field.setUnit(unit);
       this.refresh();
@@ -95,15 +107,41 @@ export class ObjectInspector {
     this.lockToggle.checked = object.get('locked');
     this.visibleToggle.checked = object.get('visible');
 
+    this.layerSelect.replaceChildren();
+    for (const layer of this.app.structure.layers) {
+      const option = document.createElement('option');
+      option.value = layer.id;
+      option.textContent = layer.name;
+      this.layerSelect.append(option);
+    }
+    this.layerSelect.value = object.get('layerId');
+
+    const groupId = object.get('groupId');
+    this.groupReadout.textContent = groupId === '' ? '—' : this.app.structure.group(groupId)?.name ?? '—';
+
     for (const [key, field] of this.numberFields) {
       field.setValue(object.get(key) as number);
-      field.setDisabled(object.isLocked && key !== 'weight' && key !== 'price');
+      const locked = this.app.structure.isLocked(object);
+      field.setDisabled(locked && key !== 'weight' && key !== 'price');
     }
 
     const width = object.get('width');
     const depth = object.get('depth');
     const unit = this.app.unit;
     this.footprint.textContent = `${formatLength(width, unit)} × ${formatLength(depth, unit)}`;
+  }
+
+  /** Builds a labelled row wrapping an arbitrary control. */
+  private static row(label: string, control: HTMLElement): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const caption = document.createElement('span');
+    caption.className = 'row__label';
+    caption.textContent = label;
+
+    row.append(caption, control);
+    return row;
   }
 
   /** Registers a numeric field bound to a property. */

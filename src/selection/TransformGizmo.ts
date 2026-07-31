@@ -75,6 +75,7 @@ export class TransformGizmo {
   private readonly snapping: SnapEngine;
   private readonly indicator: SnapIndicator;
 
+  private isLocked: (object: SceneObject) => boolean = (object) => object.isLocked;
   private mode: GizmoMode = 'translate';
   private attached: SceneObject[] = [];
   private before: TransformSnapshot[] = [];
@@ -123,6 +124,17 @@ export class TransformGizmo {
     bus.on('selection:changed', ({ objects }) => this.attach(objects));
   }
 
+  /**
+   * Installs the effective-lock predicate.
+   *
+   * Lock is inherited from an object's layer, which only the structure registry
+   * knows about. Supplied rather than imported so the gizmo keeps working
+   * without one.
+   */
+  setLockPredicate(isLocked: (object: SceneObject) => boolean): void {
+    this.isLocked = isLocked;
+  }
+
   /** True while the pointer is on a gizmo handle, so picking must stand down. */
   get isEngaged(): boolean {
     return this.controls.dragging || this.controls.axis !== null;
@@ -164,7 +176,7 @@ export class TransformGizmo {
    * selection containing only locked objects, detaches it.
    */
   private attach(objects: readonly SceneObject[]): void {
-    this.attached = objects.filter((object) => !object.isLocked);
+    this.attached = objects.filter((object) => !this.isLocked(object));
 
     if (this.attached.length === 0) {
       this.usingProxy = false;

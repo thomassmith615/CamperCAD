@@ -1,12 +1,19 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { CameraManager } from './CameraManager';
+import { InputSettings } from '@/input/InputSettings';
 
 /**
  * OrbitControls treats an unrecognised mouse-button action as "do nothing" for
- * that button. This is how the left button is freed for selection.
+ * that button. This is how a button is freed for the selection tool.
  */
 const NO_MOUSE_ACTION = -1 as unknown as THREE.MOUSE;
+
+/** Pan sensitivity for two-finger trackpad scrolling, in inches per pixel. */
+const SCROLL_PAN_SCALE = 0.55;
+
+/** Zoom sensitivity for pinch gestures. */
+const PINCH_ZOOM_SCALE = 0.012;
 
 /**
  * Wraps `OrbitControls` and keeps them bound to whichever camera is active.
@@ -16,35 +23,48 @@ const NO_MOUSE_ACTION = -1 as unknown as THREE.MOUSE;
  * callers ask for a camera change and all tuning, the shared orbit target and
  * the user-interaction callback are reapplied automatically.
  *
- * ## Mouse mapping
+ * ## Two input mappings
  *
- * The left button does not orbit. It belongs to selection, which is the action
- * performed most often, so orbiting moves to the middle button and panning to
- * the right. Holding space restores left-drag orbit for trackpad users with no
- * middle button.
+ * The button map is rebuilt from {@link InputSettings} whenever the mode
+ * changes. In mouse mode the left button belongs to selection and orbiting
+ * lives on the middle button; in trackpad mode a plain left drag orbits,
+ * because a trackpad has no middle button and a plain drag is the only
+ * comfortable gesture it has.
+ *
+ * Two-finger scrolling and pinching are handled here rather than by
+ * `OrbitControls`, which maps every wheel event to zoom. On a trackpad that is
+ * wrong twice over: two-finger scroll is the pan gesture users expect, and
+ * pinch — which the browser delivers as a Ctrl-modified wheel — is the zoom.
  *
  * ## Suspension
  *
- * Several subsystems need to stop the camera moving — a view tween, a gizmo
- * drag, a marquee. A single boolean would let whichever finished first re-enable
- * the camera underneath the others, so suspensions are held by name and the
- * camera resumes only when every one has been released.
+ * Several subsystems need to stop the camera moving: a view tween, a gizmo
+ * drag, a marquee. A single boolean would let whichever finished first
+ * re-enable the camera underneath the others, so suspensions are held by name
+ * and the camera resumes only when every one has been released.
  */
 export class ControlsManager {
   private controls: OrbitControls;
   private readonly canvas: HTMLElement;
   private readonly cameras: CameraManager;
+  private readonly input: InputSettings;
   private readonly interactionHandlers = new Set<() => void>();
   private readonly suspensions = new Set<string>();
+  private readonly disposers: Array<() => void> = [];
+
   private boundCamera: THREE.Camera;
   private dragging = false;
-  private orbitOnLeft = false;
+  private spaceHeld = false;
 
-  constructor(cameras: CameraManager, canvas: HTMLElement) {
+  constructor(cameras: CameraManager, canvas: HTMLElement, input: InputSettings) {
     this.cameras = cameras;
     this.canvas = canvas;
+    this.input = input;
     this.boundCamera = cameras.camera;
     this.controls = this.createControls(cameras.camera);
+
+    this.disposers.push(input.onChange(() => this.applyButtonMap()));
+    this.bindWheel();
   }
 
   /**
@@ -68,6 +88,11 @@ export class ControlsManager {
     return this.suspensions.size > 0;
   }
 
+  /** True while the space bar is held. */
+  get isSpaceHeld(): boolean {
+    return this.spaceHeld;
+  }
+
   /**
    * Stops camera input on behalf of `reason` until the matching
    * {@link resume}. Repeated suspensions under the same reason are idempotent.
@@ -84,15 +109,17 @@ export class ControlsManager {
   }
 
   /**
-   * Temporarily maps orbit onto the left button, for users holding space.
+   * Records the space bar state and remaps the left button accordingly.
    *
-   * Applied to the live controls rather than by rebuilding them, so the change
-   * takes effect between gestures without disturbing camera state.
+   * Space is the escape hatch that makes both modes workable on either device:
+   * in mouse mode it borrows the left button for orbiting, and in trackpad mode
+   * it borrows it for panning, which is the gesture a trackpad otherwise has to
+   * reach for two fingers to get.
    */
-  setOrbitOnLeft(enabled: boolean): void {
-    if (enabled === this.orbitOnLeft) return;
-    this.orbitOnLeft = enabled;
-    this.controls.mouseButtons.LEFT = enabled ? THREE.MOUSE.ROTATE : NO_MOUSE_ACTION;
+  setSpaceHeld(held: boolean): void {
+    if (held === this.spaceHeld) return;
+    this.spaceHeld = held;
+    this.applyButtonMap();
   }
 
   /** Applies damping and keeps the controls bound to the active camera. */
@@ -105,6 +132,8 @@ export class ControlsManager {
 
   /** Detaches listeners and releases the controls. */
   dispose(): void {
+    for (const dispose of this.disposers) dispose();
+    this.disposers.length = 0;
     this.controls.dispose();
     this.interactionHandlers.clear();
   }
@@ -127,21 +156,110 @@ export class ControlsManager {
     controls.maxDistance = 2400;
     controls.maxPolarAngle = Math.PI * 0.98;
 
-    controls.mouseButtons = {
-      LEFT: this.orbitOnLeft ? THREE.MOUSE.ROTATE : NO_MOUSE_ACTION,
-      MIDDLE: THREE.MOUSE.ROTATE,
-      RIGHT: THREE.MOUSE.PAN,
-    };
+    // Wheel handling is done by this class so scroll can pan on a trackpad.
+    controls.enableZoom = false;
 
     controls.addEventListener('start', () => {
       this.dragging = true;
-      for (const handler of this.interactionHandlers) handler();
+      this.notifyInteraction();
     });
     controls.addEventListener('end', () => {
       this.dragging = false;
     });
 
+    this.applyButtonMap(controls);
     return controls;
+  }
+
+  /**
+   * Rebuilds the mouse button map for the current mode and space state.
+   *
+   * @param target Controls to configure. Defaults to the live instance, which
+   * is not yet assigned while called from the constructor.
+   */
+  private applyButtonMap(target?: OrbitControls): void {
+    const controls = target ?? this.controls;
+    if (!controls) return;
+
+    const trackpad = this.input.current === 'trackpad';
+
+    let left: THREE.MOUSE = NO_MOUSE_ACTION;
+    if (this.spaceHeld) left = trackpad ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+    else if (trackpad) left = THREE.MOUSE.ROTATE;
+
+    controls.mouseButtons = {
+      LEFT: left,
+      MIDDLE: THREE.MOUSE.ROTATE,
+      RIGHT: THREE.MOUSE.PAN,
+    };
+  }
+
+  /**
+   * Handles wheel input directly.
+   *
+   * In mouse mode the wheel zooms, as it always has. In trackpad mode a
+   * two-finger scroll pans in the camera's own screen plane and a pinch zooms.
+   * Panning is applied by moving the camera and its target together, which is
+   * what `screenSpacePanning` does internally and keeps the orbit centre
+   * correct.
+   */
+  private bindWheel(): void {
+    const onWheel = (event: WheelEvent) => {
+      if (this.suspensions.size > 0) return;
+
+      const detected = InputSettings.classifyWheel(event);
+      if (detected) this.input.suggestMode(detected);
+
+      event.preventDefault();
+      this.notifyInteraction();
+
+      const pinching = event.ctrlKey;
+      const trackpad = this.input.current === 'trackpad';
+
+      if (trackpad && !pinching) this.panByScroll(event.deltaX, event.deltaY);
+      else this.zoomBy(pinching ? event.deltaY * PINCH_ZOOM_SCALE : Math.sign(event.deltaY) * 0.12);
+    };
+
+    this.canvas.addEventListener('wheel', onWheel, { passive: false });
+    this.disposers.push(() => this.canvas.removeEventListener('wheel', onWheel));
+  }
+
+  /** Slides the camera and its target across the view plane. */
+  private panByScroll(deltaX: number, deltaY: number): void {
+    const camera = this.cameras.camera;
+    const distance = camera.position.distanceTo(this.cameras.target);
+    const scale = (SCROLL_PAN_SCALE * Math.max(distance, 1)) / 400;
+
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+    const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+
+    const offset = right.multiplyScalar(deltaX * scale).add(up.multiplyScalar(-deltaY * scale));
+    camera.position.add(offset);
+    this.cameras.target.add(offset);
+  }
+
+  /**
+   * Moves the camera along its view axis, or adjusts orthographic zoom.
+   *
+   * @param amount Positive zooms out, negative zooms in.
+   */
+  private zoomBy(amount: number): void {
+    const camera = this.cameras.camera;
+
+    if (camera instanceof THREE.OrthographicCamera) {
+      camera.zoom = THREE.MathUtils.clamp(camera.zoom * (1 - amount), 0.02, 60);
+      camera.updateProjectionMatrix();
+      return;
+    }
+
+    const offset = camera.position.clone().sub(this.cameras.target);
+    const distance = THREE.MathUtils.clamp(offset.length() * (1 + amount), 12, 2400);
+    camera.position.copy(this.cameras.target).addScaledVector(offset.normalize(), distance);
+  }
+
+  /** Tells listeners the user moved the camera by hand. */
+  private notifyInteraction(): void {
+    for (const handler of this.interactionHandlers) handler();
   }
 
   /** Recreates the controls for a new camera, preserving suspension state. */

@@ -1,6 +1,7 @@
 import type { DisplayUnit } from '@/math/Units';
 import type { CameraState } from '@/core/CameraManager';
 import type { ObjectData } from '@/objects/ObjectTypes';
+import type { GroupData, LayerData } from '@/objects/StructureTypes';
 
 /**
  * Current project file schema.
@@ -39,6 +40,10 @@ export interface ProjectData {
   snapping: { enabled: boolean; tolerance: number };
   camera: CameraState;
   objects: ObjectData[];
+  /** Layers. Absent in projects saved before layers existed. */
+  layers: LayerData[];
+  /** Groups. Absent in projects saved before groups existed. */
+  groups: GroupData[];
 }
 
 /** Lightweight record for the open dialog, read without loading a project. */

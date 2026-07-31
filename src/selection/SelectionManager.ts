@@ -19,6 +19,8 @@ export type SelectionMode = 'replace' | 'add' | 'toggle';
 export class SelectionManager {
   private readonly selected = new Set<SceneObject>();
   private readonly bus: EventBus<AppEvents>;
+  private expand: ((objects: readonly SceneObject[]) => SceneObject[]) | null = null;
+  private bypassGroups = false;
 
   constructor(bus: EventBus<AppEvents>) {
     this.bus = bus;
@@ -29,6 +31,24 @@ export class SelectionManager {
       const pruned = objects.filter((object) => this.selected.delete(object));
       if (pruned.length > 0) this.announce();
     });
+  }
+
+  /**
+   * Installs the group expansion function.
+   *
+   * Supplied by the application rather than imported, so selection stays
+   * independent of the structure registry and remains usable before one exists.
+   */
+  setGroupExpander(expand: (objects: readonly SceneObject[]) => SceneObject[]): void {
+    this.expand = expand;
+  }
+
+  /**
+   * Suspends group expansion, so a pick selects one member rather than its
+   * whole group. Bound to Alt-click, the standard "reach inside" gesture.
+   */
+  setBypassGroups(bypass: boolean): void {
+    this.bypassGroups = bypass;
   }
 
   /** Selected objects, in the order they were selected. */
@@ -64,10 +84,11 @@ export class SelectionManager {
    */
   select(objects: readonly SceneObject[], mode: SelectionMode = 'replace'): void {
     const before = this.signature();
+    const resolved = this.bypassGroups || !this.expand ? objects : this.expand(objects);
 
     if (mode === 'replace') this.selected.clear();
 
-    for (const object of objects) {
+    for (const object of resolved) {
       if (mode === 'toggle' && this.selected.has(object)) this.selected.delete(object);
       else this.selected.add(object);
     }
