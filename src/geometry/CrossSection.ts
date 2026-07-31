@@ -69,6 +69,36 @@ export class CrossSection {
     return { width: Math.abs(best.x) * 2, height: best.y };
   }
 
+  /**
+   * Greatest height at which the section is still at least `halfWidth` wide on
+   * each side of the centreline.
+   *
+   * This is the inverse of {@link widthAtHeight} and answers the question the
+   * ceiling clearance actually poses: a cabinet 20 inches from the centreline
+   * hits the roof lower than one on the centreline does, because the roof curves
+   * away. Walking the right wall down from the apex finds that height exactly.
+   *
+   * @param halfWidth Distance from the centreline, in inches.
+   * @returns Height in inches, or zero when nothing that wide fits at all.
+   */
+  maxHeightForHalfWidth(halfWidth: number): number {
+    const target = Math.abs(halfWidth);
+
+    for (let i = this.apexIndex; i > 0; i -= 1) {
+      const upper = this.points[i];
+      const lower = this.points[i - 1];
+
+      if (Math.abs(upper.x) >= target) return upper.y;
+      if (Math.abs(lower.x) >= target) {
+        const span = Math.abs(lower.x) - Math.abs(upper.x);
+        const t = span < 1e-6 ? 0 : (target - Math.abs(upper.x)) / span;
+        return THREE.MathUtils.lerp(upper.y, lower.y, t);
+      }
+    }
+
+    return this.points[0].y;
+  }
+
   /** Interior width at a given height above the floor, in inches. */
   widthAtHeight(height: number): number {
     const right = this.pointAtHeight('right', height);

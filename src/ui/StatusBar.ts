@@ -15,9 +15,11 @@ export class StatusBar {
   private readonly vehicleValue: HTMLElement;
   private readonly cursorValue: HTMLElement;
   private readonly gridValue: HTMLElement;
+  private readonly snapValue: HTMLElement;
   private readonly perfValue: HTMLElement;
 
   private lastFpsUpdate = 0;
+  private holdingMeasurement = false;
 
   constructor(host: HTMLElement, app: Application) {
     this.app = app;
@@ -26,6 +28,7 @@ export class StatusBar {
     this.vehicleValue = this.addItem(host, 'Vehicle', 'None');
     this.cursorValue = this.addItem(host, 'Cursor', '—');
     this.gridValue = this.addItem(host, 'Grid', '—');
+    this.snapValue = this.addItem(host, 'Snap', '—');
     this.perfValue = this.addItem(host, 'FPS', '—', true);
 
     app.bus.on('vehicle:loaded', ({ vehicle }) => {
@@ -41,9 +44,31 @@ export class StatusBar {
     });
 
     app.bus.on('pointer:moved', ({ point }) => {
+      // A completed measurement owns this slot until it is cleared: it is the
+      // number the user just asked for, and overwriting it on the next mouse
+      // move would make the tool useless.
+      if (this.holdingMeasurement) return;
       this.cursorValue.textContent = point
         ? `X ${formatLength(point.x, this.app.unit)}   Z ${formatLength(point.z, this.app.unit)}`
         : '—';
+    });
+
+    app.bus.on('snap:active', ({ applied }) => {
+      this.snapValue.textContent = applied.length === 0 ? '—' : applied.map((snap) => snap.label).join(' · ');
+    });
+
+    app.bus.on('measure:changed', ({ measurement }) => {
+      this.holdingMeasurement = measurement !== null;
+      if (!measurement) {
+        this.cursorValue.textContent = '—';
+        return;
+      }
+      const unit = this.app.unit;
+      this.cursorValue.textContent =
+        `${formatLength(measurement.distance, unit)}   ` +
+        `ΔX ${formatLength(measurement.dx, unit)}  ` +
+        `ΔY ${formatLength(measurement.dy, unit)}  ` +
+        `ΔZ ${formatLength(measurement.dz, unit)}`;
     });
 
     app.bus.on('frame:rendered', ({ fps, triangles }) => this.updatePerformance(fps, triangles));

@@ -28,6 +28,7 @@ export class Toolbar {
   private perspectiveButton!: HTMLButtonElement;
   private orthographicButton!: HTMLButtonElement;
   private gridButton!: HTMLButtonElement;
+  private snapButton!: HTMLButtonElement;
   private spacingSelect!: HTMLSelectElement;
   private undoButton!: HTMLButtonElement;
   private redoButton!: HTMLButtonElement;
@@ -51,6 +52,7 @@ export class Toolbar {
 
     app.bus.on('projection:changed', ({ mode }) => this.syncProjection(mode));
     app.bus.on('grid:changed', ({ visible }) => this.syncGrid(visible));
+    app.bus.on('snap:settings', ({ enabled }) => this.snapButton.classList.toggle('is-active', enabled));
     app.bus.on('units:changed', ({ unit }) => this.rebuildSpacingOptions(unit));
     app.bus.on('tool:changed', ({ tool }) => this.syncTool(tool));
     app.bus.on('gizmo:changed', ({ mode, enabled, multiSelect }) => this.syncGizmo(mode, enabled, multiSelect));
@@ -68,6 +70,7 @@ export class Toolbar {
 
     this.syncProjection('perspective');
     this.syncGrid(true);
+    this.snapButton.classList.toggle('is-active', app.snapping.settings.enabled);
     this.syncTool('select');
     this.syncGizmo('translate', false, false);
     this.undoButton.disabled = true;
@@ -81,7 +84,7 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.2.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.3.0</span>';
     return brand;
   }
 
@@ -91,11 +94,15 @@ export class Toolbar {
 
     const select = this.button('cursor', 'Select', 'Select and marquee — Q', () => this.app.setTool('select'));
     const box = this.button('box', 'Box', 'Place a box on the floor — B', () => this.app.setTool('create-box'));
+    const measure = this.button('ruler', 'Measure', 'Measure between two points — M', () =>
+      this.app.setTool('measure'),
+    );
 
     this.toolButtons.set('select', select);
     this.toolButtons.set('create-box', box);
+    this.toolButtons.set('measure', measure);
 
-    group.append(select, box);
+    group.append(select, box, measure);
     return group;
   }
 
@@ -151,6 +158,10 @@ export class Toolbar {
       this.app.setGridVisible(!this.app.grid.visible),
     );
 
+    this.snapButton = this.iconButton('magnet', 'Snapping — hold Alt to release', () =>
+      this.app.setSnapEnabled(!this.app.snapping.settings.enabled),
+    );
+
     this.spacingSelect = document.createElement('select');
     this.spacingSelect.className = 'field-select';
     this.spacingSelect.title = 'Grid spacing';
@@ -171,7 +182,7 @@ export class Toolbar {
     unitSelect.value = this.app.unit;
     unitSelect.addEventListener('change', () => this.app.setUnit(unitSelect.value as DisplayUnit));
 
-    group.append(this.gridButton, this.spacingSelect, unitSelect);
+    group.append(this.gridButton, this.snapButton, this.spacingSelect, unitSelect);
     return group;
   }
 

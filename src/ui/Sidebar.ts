@@ -4,6 +4,7 @@ import type { SceneObject } from '@/objects/SceneObject';
 import { formatLength, isMetric } from '@/math/Units';
 import { Panel } from './Panel';
 import { ObjectInspector } from './ObjectInspector';
+import { ClearancePanel } from './ClearancePanel';
 
 /** Heights at which interior width is reported, in inches. */
 const WIDTH_SAMPLE_HEIGHTS = [12, 24, 36, 48, 60];
@@ -25,6 +26,7 @@ export class Sidebar {
   private readonly host: HTMLElement;
   private readonly updaters: Array<() => void> = [];
   private readonly inspector: ObjectInspector;
+  private readonly clearances: ClearancePanel;
 
   private vehiclePanels: HTMLElement[] = [];
   private multiPanel: Panel | null = null;
@@ -36,6 +38,7 @@ export class Sidebar {
     this.host = host;
     this.app = app;
     this.inspector = new ObjectInspector(app);
+    this.clearances = new ClearancePanel(app);
 
     app.bus.on('vehicle:loaded', ({ vehicle }) => {
       this.buildVehiclePanels(vehicle);
@@ -46,6 +49,7 @@ export class Sidebar {
     app.bus.on('object:changed', () => {
       if (this.app.selection.size > 1) this.refreshMultiSummary();
     });
+    app.bus.on('objects:added', () => this.clearances.refresh());
 
     if (app.vehicle) {
       this.buildVehiclePanels(app.vehicle);
@@ -59,11 +63,18 @@ export class Sidebar {
 
     if (selected.length === 1) {
       this.inspector.setTarget(selected[0]);
-      this.host.replaceChildren(...this.inspector.panels.map((panel) => panel.element));
+      this.clearances.setTarget(selected[0]);
+
+      // Clearances sit directly under the object's own dimensions: the two are
+      // read together when deciding whether a piece fits.
+      const panels = this.inspector.panels.map((panel) => panel.element);
+      panels.splice(2, 0, this.clearances.panel.element);
+      this.host.replaceChildren(...panels);
       return;
     }
 
     this.inspector.setTarget(null);
+    this.clearances.setTarget(null);
 
     if (selected.length > 1) {
       this.host.replaceChildren(this.multiSummary().element);
@@ -191,6 +202,7 @@ export class Sidebar {
       'Left-drag to select · middle-drag to orbit · right-drag to pan · scroll to zoom<br>' +
         'Hold <span class="kbd">Space</span> to orbit with the left button.<br><br>' +
         '<span class="kbd">Q</span> select &nbsp; <span class="kbd">B</span> box &nbsp; ' +
+        '<span class="kbd">M</span> measure &nbsp; ' +
         '<span class="kbd">W</span> move &nbsp; <span class="kbd">E</span> rotate &nbsp; ' +
         '<span class="kbd">R</span> resize<br>' +
         '<span class="kbd">1</span>–<span class="kbd">6</span> views &nbsp; ' +
@@ -198,7 +210,8 @@ export class Sidebar {
         '<span class="kbd">O</span> ortho<br>' +
         '<span class="kbd">Ctrl</span>+<span class="kbd">Z</span> undo &nbsp; ' +
         '<span class="kbd">Ctrl</span>+<span class="kbd">D</span> duplicate &nbsp; ' +
-        '<span class="kbd">Del</span> delete',
+        '<span class="kbd">Del</span> delete<br><br>' +
+        'Hold <span class="kbd">Alt</span> while dragging to place freely without snapping.',
     );
     return panel;
   }

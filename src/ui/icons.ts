@@ -23,6 +23,7 @@ const PATHS: Record<string, string> = {
   undo: '<path d="M3 8h11a5 5 0 0 1 0 10h-6"/><path d="m7 4-4 4 4 4"/>',
   redo: '<path d="M21 8H10a5 5 0 0 0 0 10h6"/><path d="m17 4 4 4-4 4"/>',
   duplicate: '<rect x="9" y="9" width="12" height="12" rx="1.5"/><path d="M6 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V6"/>',
+  magnet: '<path d="M6 4v7a6 6 0 0 0 12 0V4"/><path d="M6 9h5M13 9h5"/><path d="M3 4h6M15 4h6"/>',
   trash: '<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
 };
 

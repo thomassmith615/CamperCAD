@@ -1,5 +1,5 @@
 /** Identifiers of the tools the toolbar can activate. */
-export type ToolId = 'select' | 'create-box';
+export type ToolId = 'select' | 'create-box' | 'measure';
 
 /**
  * A pointer-driven mode of interaction with the viewport.

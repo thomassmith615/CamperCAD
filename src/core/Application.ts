@@ -22,7 +22,13 @@ import { TransformGizmo, type GizmoMode } from '@/selection/TransformGizmo';
 import { ToolManager } from '@/tools/ToolManager';
 import { SelectTool } from '@/tools/SelectTool';
 import { CreateBoxTool } from '@/tools/CreateBoxTool';
+import { MeasureTool } from '@/tools/MeasureTool';
 import type { ToolId } from '@/tools/ToolTypes';
+import { SnapEngine } from '@/snapping/SnapEngine';
+import { SnapIndicator } from '@/snapping/SnapIndicator';
+import { MeasurementService } from '@/measure/MeasurementService';
+import { DimensionOverlay } from '@/measure/DimensionOverlay';
+import { ScreenLabelLayer } from '@/ui/ScreenLabels';
 import type { AppEvents } from './AppEvents';
 import type { DisplayUnit } from '@/math/Units';
 
@@ -53,8 +59,14 @@ export class Application {
   readonly selection: SelectionManager;
   readonly gizmo: TransformGizmo;
   readonly tools: ToolManager;
+  readonly snapping: SnapEngine;
+  readonly measurements: MeasurementService;
 
   private readonly outline = new SelectionOutline();
+  private readonly snapIndicator = new SnapIndicator();
+  private readonly dimensions = new DimensionOverlay();
+  private readonly labels: ScreenLabelLayer;
+  private readonly measureTool: MeasureTool;
   private readonly clock = new THREE.Clock();
   private readonly raycaster = new THREE.Raycaster();
   private readonly floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -80,10 +92,21 @@ export class Application {
 
     this.scene.add('helpers', this.grid.group);
     this.scene.add('helpers', this.outline.group);
+    this.scene.add('helpers', this.snapIndicator.group);
+    this.scene.add('helpers', this.dimensions.group);
 
     this.objects = new ObjectStore(this.scene, this.bus);
     this.history = new CommandStack(this.bus);
     this.selection = new SelectionManager(this.bus);
+    this.snapping = new SnapEngine(this.objects, this.grid);
+    this.measurements = new MeasurementService(this.objects);
+
+    // Labels live in their own pointer-transparent layer above the canvas so
+    // they never intercept a click meant for the model.
+    const labelHost = document.createElement('div');
+    labelHost.className = 'label-layer';
+    host.append(labelHost);
+    this.labels = new ScreenLabelLayer(labelHost);
 
     this.gizmo = new TransformGizmo(
       this.scene,
@@ -94,6 +117,8 @@ export class Application {
       this.objects,
       this.history,
       this.bus,
+      this.snapping,
+      this.snapIndicator,
     );
 
     this.tools = new ToolManager(this.renderer.domElement, this.bus);
@@ -114,7 +139,20 @@ export class Application {
       ),
     );
 
-    this.bus.on('selection:changed', ({ objects }) => this.outline.setSelection(objects));
+    this.measureTool = new MeasureTool(
+      this.renderer.domElement,
+      this.scene,
+      this.cameras,
+      this.grid,
+      this.objects,
+      this.bus,
+    );
+    this.tools.register(this.measureTool);
+
+    this.bus.on('selection:changed', ({ objects }) => {
+      this.outline.setSelection(objects);
+      this.dimensions.setTarget(objects.length === 1 ? objects[0] : null);
+    });
 
     this.disposers.push(this.renderer.onResize((width, height) => this.cameras.setAspect(width / height)));
     this.disposers.push(this.controls.onUserInteract(() => this.onUserMovedCamera()));
@@ -151,6 +189,9 @@ export class Application {
     this.scene.lighting.fitToBounds(bounds);
     this.cameras.frame(bounds, false);
     this.cameras.applyView('iso', false);
+
+    this.snapping.setVehicle(model);
+    this.measurements.setVehicle(model);
 
     this.bus.emit('vehicle:loaded', { vehicle: model });
     return model;
@@ -205,6 +246,19 @@ export class Application {
   /** Activates a tool by identifier. */
   setTool(tool: ToolId): void {
     this.tools.activate(tool);
+  }
+
+  /** Turns snapping on or off. */
+  setSnapEnabled(enabled: boolean): void {
+    this.snapping.settings.enabled = enabled;
+    if (!enabled) {
+      this.snapIndicator.clear();
+      this.bus.emit('snap:active', { applied: [] });
+    }
+    this.bus.emit('snap:settings', {
+      enabled,
+      tolerance: this.snapping.settings.tolerance,
+    });
   }
 
   /** Switches the transform gizmo between move, rotate and scale. */
@@ -274,6 +328,9 @@ export class Application {
     this.tools.dispose();
     this.gizmo.dispose();
     this.outline.dispose();
+    this.snapIndicator.dispose();
+    this.dimensions.dispose();
+    this.labels.dispose();
     this.controls.dispose();
     this.grid.dispose();
     this.renderer.dispose();
@@ -300,6 +357,16 @@ export class Application {
     this.controls.update();
     this.gizmo.update(this.cameras.camera);
     this.outline.update();
+    this.dimensions.update(this.displayUnit);
+    this.measureTool.update(this.displayUnit);
+
+    const { width, height } = this.renderer.size;
+    this.labels.render(
+      [...this.dimensions.screenLabels, ...this.measureTool.screenLabels],
+      this.cameras.camera,
+      width,
+      height,
+    );
 
     this.renderer.render(this.scene.scene, this.cameras.camera);
 
@@ -387,6 +454,9 @@ export class Application {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTyping(event.target)) return;
 
+      // Holding Alt releases snapping for the duration of a drag.
+      if (event.key === 'Alt') this.snapping.setSuspended(true);
+
       const accel = event.metaKey || event.ctrlKey;
       if (accel) {
         switch (event.code) {
@@ -433,6 +503,9 @@ export class Application {
         case 'KeyB':
           this.setTool('create-box');
           break;
+        case 'KeyM':
+          this.setTool('measure');
+          break;
         case 'KeyW':
           this.setGizmoMode('translate');
           break;
@@ -461,11 +534,21 @@ export class Application {
 
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.code === 'Space') this.controls.setOrbitOnLeft(false);
+      if (event.key === 'Alt') this.snapping.setSuspended(false);
+    };
+
+    // A held modifier is lost when the window loses focus, so clear both rather
+    // than leaving the app stuck in a temporary mode the user cannot see.
+    const onBlur = () => {
+      this.controls.setOrbitOnLeft(false);
+      this.snapping.setSuspended(false);
     };
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
     this.disposers.push(() => window.removeEventListener('keydown', onKeyDown));
     this.disposers.push(() => window.removeEventListener('keyup', onKeyUp));
+    this.disposers.push(() => window.removeEventListener('blur', onBlur));
   }
 }

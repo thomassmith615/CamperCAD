@@ -98,6 +98,46 @@ export class VehicleModel {
     return halfWidth - Math.abs(point.x);
   }
 
+  /**
+   * Height of the ceiling above a footprint spanning `minX` to `maxX`.
+   *
+   * The binding constraint is whichever edge of the footprint sits furthest
+   * from the centreline, since that is where the roof curves down first.
+   */
+  ceilingHeightOver(minX: number, maxX: number): number {
+    return this.section.maxHeightForHalfWidth(Math.max(Math.abs(minX), Math.abs(maxX)));
+  }
+
+  /**
+   * Narrowest half-width of the cabin across a height range.
+   *
+   * An object occupying a range of heights has to clear the wall wherever the
+   * wall is tightest within that range, not at its midpoint. Sampling rather
+   * than solving analytically is deliberate: the section is a spline, the
+   * sample count is cheap, and a slightly conservative answer is the safe
+   * direction to be wrong in when the output is a cut list.
+   *
+   * @param minY Bottom of the range, in inches above the floor.
+   * @param maxY Top of the range.
+   */
+  narrowestHalfWidth(minY: number, maxY: number): number {
+    const peak = this.standingHeight;
+    const low = Math.max(0, Math.min(minY, maxY));
+    const high = Math.min(peak, Math.max(minY, maxY));
+    if (high < low) return 0;
+
+    const samples = 12;
+    let narrowest = Infinity;
+
+    for (let i = 0; i <= samples; i += 1) {
+      const height = low + ((high - low) * i) / samples;
+      const width = this.section.widthAtHeight(height);
+      if (width > 0) narrowest = Math.min(narrowest, width / 2);
+    }
+
+    return Number.isFinite(narrowest) ? narrowest : 0;
+  }
+
   /** True when the point lies inside the cabin volume. */
   contains(point: THREE.Vector3): boolean {
     if (point.y < 0 || point.y > this.standingHeight) return false;
