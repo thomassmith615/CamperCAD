@@ -93,6 +93,7 @@ export class ObjectFactory {
     }
 
     object.set('notes', item.notes);
+    if (item.material) object.set('material', item.material);
     object.mesh.updateMatrixWorld(true);
     return object;
   }

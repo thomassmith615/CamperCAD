@@ -110,6 +110,8 @@ export interface AppEvents {
   'weight:changed': { report: WeightReport | null };
   /** The balance overlay was shown or hidden. */
   'balance:toggled': { visible: boolean };
+  /** The user asked for the bill of materials from the keyboard. */
+  'bom:requested': undefined;
 
   /** The library drawer opened or closed. */
   'library:toggled': { open: boolean };

@@ -50,6 +50,7 @@ export class SceneObject {
   private capacityGallons = 0;
   private fillGallons = 0;
   private notes = '';
+  private material = 'birch-ply';
   private locked = false;
   private layerId = '';
   private groupId = '';
@@ -214,6 +215,7 @@ export class SceneObject {
       capacityGallons: this.capacityGallons,
       fillGallons: this.fillGallons,
       notes: this.notes,
+      material: this.material,
       locked: this.locked,
       visible: this.mesh.visible,
       layerId: this.layerId,
@@ -238,6 +240,7 @@ export class SceneObject {
     this.capacityGallons = data.capacityGallons ?? 0;
     this.fillGallons = Math.min(data.fillGallons ?? 0, this.capacityGallons);
     this.notes = data.notes;
+    this.material = data.material ?? 'birch-ply';
     this.locked = data.locked;
     this.layerId = data.layerId ?? '';
     this.groupId = data.groupId ?? '';
@@ -308,6 +311,8 @@ export class SceneObject {
         return this.fillGallons;
       case 'notes':
         return this.notes;
+      case 'material':
+        return this.material;
       case 'locked':
         return this.locked;
       case 'visible':
@@ -374,6 +379,9 @@ export class SceneObject {
         break;
       case 'notes':
         this.notes = String(value);
+        break;
+      case 'material':
+        this.material = String(value);
         break;
       case 'locked':
         this.locked = Boolean(value);

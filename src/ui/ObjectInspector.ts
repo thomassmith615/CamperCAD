@@ -3,6 +3,7 @@ import type { SceneObject } from '@/objects/SceneObject';
 import type { ObjectProperties, ObjectPropertyKey } from '@/objects/ObjectTypes';
 import { formatLength } from '@/math/Units';
 import { KIND_INFO } from '@/geometry/GeometryRegistry';
+import { MATERIAL_LABELS, type SheetMaterial } from '@/analysis/BomTypes';
 import { ProfileEditor } from './ProfileEditor';
 import { Panel } from './Panel';
 import { ColorField, NotesField, NumberField, TextField } from './Fields';
@@ -38,6 +39,8 @@ export class ObjectInspector {
   private readonly visibleToggle: HTMLInputElement;
   private readonly footprint: HTMLElement;
   private readonly kindReadout: HTMLElement;
+  private readonly materialSelect: HTMLSelectElement;
+  private readonly materialRow: HTMLElement;
   private readonly tankPanel: Panel;
   private readonly fillSlider: HTMLInputElement;
   private readonly fluidReadout: HTMLElement;
@@ -63,6 +66,20 @@ export class ObjectInspector {
     identity.append(ObjectInspector.row('Layer', this.layerSelect));
 
     this.groupReadout = identity.addReadout('Group', '—');
+
+    this.materialSelect = document.createElement('select');
+    this.materialSelect.className = 'field-select field-select--full';
+    for (const [value, label] of Object.entries(MATERIAL_LABELS) as Array<[SheetMaterial, string]>) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      this.materialSelect.append(option);
+    }
+    this.materialSelect.addEventListener('change', () => {
+      this.commit('material', this.materialSelect.value);
+    });
+    this.materialRow = ObjectInspector.row('Material', this.materialSelect);
+    identity.append(this.materialRow);
 
     const dimensions = new Panel('Dimensions');
     this.addNumberField(dimensions, 'Width', 'width', 'length');
@@ -187,6 +204,13 @@ export class ObjectInspector {
       const field = this.numberFields.get(key as ObjectPropertyKey);
       field?.setLabel(label);
     }
+
+    // Material only decides anything for sheet goods, so the row is hidden for
+    // everything else rather than inviting the user to set a value that has no
+    // effect on the cut list.
+    const isSheet = KIND_INFO[object.kind].isSheet;
+    this.materialRow.hidden = !isSheet;
+    if (isSheet) this.materialSelect.value = object.get('material');
 
     const capacity = object.get('capacityGallons');
     if (capacity > 0) {

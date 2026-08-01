@@ -55,6 +55,14 @@ export interface ObjectProperties {
   /** How full the tank currently is, in US gallons. Never exceeds capacity. */
   fillGallons: number;
   notes: string;
+  /**
+   * What the object is made from, as a {@link SheetMaterial} key.
+   *
+   * Only meaningful for panels, where it decides which stock sheet the cut list
+   * nests it onto. Carried on every object so the field does not have to be
+   * conditionally present.
+   */
+  material: string;
   locked: boolean;
   visible: boolean;
   /** Layer the object belongs to. Always a valid layer id. */
@@ -108,6 +116,8 @@ export interface ObjectData {
   /** Current fill in US gallons. */
   fillGallons?: number;
   notes: string;
+  /** Material key. Absent in projects saved before materials existed. */
+  material?: string;
   locked: boolean;
   visible: boolean;
   /** Layer membership. Optional so projects saved before layers still load. */

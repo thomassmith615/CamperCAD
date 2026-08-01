@@ -90,6 +90,8 @@ export interface LibraryItem {
   price: number;
   /** Fluid capacity in US gallons, for tanks. Omitted for everything else. */
   capacityGallons?: number;
+  /** Material key for panels, feeding the cut list. Defaults to birch ply. */
+  material?: string;
   /**
    * Whether a new tank arrives full. Defaults to true.
    *

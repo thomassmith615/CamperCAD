@@ -215,6 +215,7 @@ export class ProjectSerializer {
       capacityGallons: Math.max(0, num(value.capacityGallons, 0)),
       fillGallons: Math.max(0, num(value.fillGallons, 0)),
       notes: typeof value.notes === 'string' ? value.notes : '',
+      material: str(value.material, 'birch-ply'),
       locked: bool(value.locked, false),
       visible: bool(value.visible, true),
       layerId: str(value.layerId, DEFAULT_LAYER_ID),

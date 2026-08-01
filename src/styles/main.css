@@ -1298,6 +1298,128 @@ body {
   color: var(--danger);
 }
 
+/* ------------------------------------------------------------ BOM dialog */
+
+.bom-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bom-tab {
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bom-tab:hover {
+  color: var(--text);
+}
+
+.bom-tab.is-active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.bom-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bom-table th {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.bom-table th:not(:first-child) {
+  text-align: right;
+}
+
+.bom-table td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text);
+}
+
+.bom-table td.numeric {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bom-table td.muted {
+  color: var(--text-faint);
+}
+
+.bom-table tr.is-total td {
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  color: var(--accent);
+  font-weight: 550;
+}
+
+.bom-problems {
+  margin: 12px 0 0;
+  padding-left: 16px;
+}
+
+.bom-problems li {
+  margin-bottom: 6px;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* ---------------------------------------------------------- sheet layout */
+
+.sheet-figure {
+  margin: 14px 0 0;
+}
+
+.sheet-figure__caption {
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.sheet-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+
+.sheet-svg__stock {
+  fill: var(--bg-2);
+  stroke: var(--line);
+  stroke-width: 0.5;
+}
+
+.sheet-svg__piece {
+  fill: rgba(226, 164, 74, 0.28);
+  stroke: var(--accent);
+  stroke-width: 0.5;
+}
+
+.sheet-svg__piece:hover {
+  fill: rgba(226, 164, 74, 0.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0ms !important;

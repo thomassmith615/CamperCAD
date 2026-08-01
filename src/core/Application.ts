@@ -42,6 +42,7 @@ import type { ArrayOptions } from '@/objects/StructureTypes';
 import { AssignLayerCommand, GroupCommand, UngroupCommand } from '@/commands/StructureCommands';
 import { InputSettings, type InputMode } from '@/input/InputSettings';
 import { WeightService } from '@/analysis/WeightService';
+import { BomService } from '@/analysis/BomService';
 import { BalanceOverlay } from '@/scene/BalanceOverlay';
 import type { AppEvents } from './AppEvents';
 import type { DisplayUnit } from '@/math/Units';
@@ -80,6 +81,7 @@ export class Application {
   readonly placement: PlacementSolver;
   readonly structure: StructureRegistry;
   readonly weights: WeightService;
+  readonly bom: BomService;
   private readonly balance = new BalanceOverlay();
   readonly input = new InputSettings();
   private readonly arrays: ArrayBuilder;
@@ -127,6 +129,7 @@ export class Application {
     this.placement = new PlacementSolver(this.objects);
     this.structure = new StructureRegistry(this.objects, this.bus);
     this.weights = new WeightService(this.objects);
+    this.bom = new BomService(this.objects);
     this.scene.add('helpers', this.balance.group);
     this.arrays = new ArrayBuilder(this.factory);
 
@@ -718,6 +721,9 @@ export class Application {
           break;
         case 'KeyH':
           this.setBalanceVisible(!this.balance.visible);
+          break;
+        case 'KeyJ':
+          this.bus.emit('bom:requested', undefined);
           break;
         case 'KeyO':
           this.setProjection(this.cameras.projection === 'perspective' ? 'orthographic' : 'perspective');
