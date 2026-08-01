@@ -43,6 +43,8 @@ import { AssignLayerCommand, GroupCommand, UngroupCommand } from '@/commands/Str
 import { InputSettings, type InputMode } from '@/input/InputSettings';
 import { WeightService } from '@/analysis/WeightService';
 import { BomService } from '@/analysis/BomService';
+import { ElectricalService } from '@/analysis/ElectricalService';
+import type { SystemVoltage } from '@/analysis/ElectricalTypes';
 import { BalanceOverlay } from '@/scene/BalanceOverlay';
 import type { AppEvents } from './AppEvents';
 import type { DisplayUnit } from '@/math/Units';
@@ -82,6 +84,7 @@ export class Application {
   readonly structure: StructureRegistry;
   readonly weights: WeightService;
   readonly bom: BomService;
+  readonly electrical: ElectricalService;
   private readonly balance = new BalanceOverlay();
   readonly input = new InputSettings();
   private readonly arrays: ArrayBuilder;
@@ -130,6 +133,7 @@ export class Application {
     this.structure = new StructureRegistry(this.objects, this.bus);
     this.weights = new WeightService(this.objects);
     this.bom = new BomService(this.objects);
+    this.electrical = new ElectricalService(this.objects);
     this.scene.add('helpers', this.balance.group);
     this.arrays = new ArrayBuilder(this.factory);
 
@@ -405,6 +409,11 @@ export class Application {
 
     this.history.execute(new AddObjectCommand(this.objects, copies, `Array ${copies.length} objects`));
     this.selection.select(copies, 'replace');
+  }
+
+  /** Switches the nominal system voltage used for every electrical figure. */
+  setSystemVoltage(voltage: SystemVoltage): void {
+    this.electrical.setSystemVoltage(voltage);
   }
 
   /** Shows or hides the axle and centre-of-gravity overlay. */
@@ -724,6 +733,9 @@ export class Application {
           break;
         case 'KeyJ':
           this.bus.emit('bom:requested', undefined);
+          break;
+        case 'KeyK':
+          this.bus.emit('electrical:requested', undefined);
           break;
         case 'KeyO':
           this.setProjection(this.cameras.projection === 'perspective' ? 'orthographic' : 'perspective');

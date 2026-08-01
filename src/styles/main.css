@@ -1420,6 +1420,18 @@ body {
   fill: rgba(226, 164, 74, 0.5);
 }
 
+/* --------------------------------------------------------- dialog extras */
+
+.bom-tabs__aside {
+  margin-left: auto;
+  align-self: center;
+  margin-bottom: 4px;
+}
+
+.bom-table tr.is-problem td {
+  color: var(--danger);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0ms !important;

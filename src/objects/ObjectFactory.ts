@@ -94,6 +94,16 @@ export class ObjectFactory {
 
     object.set('notes', item.notes);
     if (item.material) object.set('material', item.material);
+
+    if (item.electrical) {
+      const e = item.electrical;
+      if (e.watts) object.set('loadWatts', e.watts);
+      if (e.hoursPerDay) object.set('loadHoursPerDay', e.hoursPerDay);
+      if (e.ac) object.set('loadIsAc', true);
+      if (e.batteryAmpHours) object.set('batteryAmpHours', e.batteryAmpHours);
+      if (e.solarWatts) object.set('solarWatts', e.solarWatts);
+      if (e.inverterWatts) object.set('inverterWatts', e.inverterWatts);
+    }
     object.mesh.updateMatrixWorld(true);
     return object;
   }

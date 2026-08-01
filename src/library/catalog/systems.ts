@@ -23,6 +23,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#5c6470',
     weight: 55,
     price: 750,
+    electrical: { watts: 45, hoursPerDay: 9 },
     placement: 'floor',
     notes:
       'Compressor fridges need airflow: leave at least 2" behind and above, and vent to outside air if you can. Draws about 40 Ah per day in warm weather.',
@@ -38,6 +39,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#5c6470',
     weight: 42,
     price: 900,
+    electrical: { watts: 40, hoursPerDay: 8 },
     placement: 'floor',
     notes: 'Fits under a 34" counter with room for a drawer above. Same ventilation rules as an upright.',
     keywords: ['refrigerator', 'drawer', 'under counter'],
@@ -52,6 +54,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#3f454e',
     weight: 12,
     price: 180,
+    electrical: { watts: 1800, hoursPerDay: 0.4, ac: true },
     placement: 'surface',
     notes:
       'Propane needs a vent and a CO alarm; induction needs roughly 1800 W, which means a large inverter and a serious battery bank.',
@@ -113,6 +116,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#7a6b5c',
     weight: 18,
     price: 500,
+    electrical: { watts: 30, hoursPerDay: 1 },
     capacityGallons: 2.6,
     placement: 'floor',
     notes: 'Needs combustion air and an exhaust through the floor or wall. Keep the exhaust well away from windows and the sliding door.',
@@ -156,6 +160,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#3d4a5c',
     weight: 26,
     price: 400,
+    electrical: { batteryAmpHours: 100 },
     placement: 'floor',
     notes:
       'Lithium will not charge below freezing without an internal heater. Mount inside the insulated envelope, not under the floor.',
@@ -171,6 +176,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#3d4a5c',
     weight: 48,
     price: 750,
+    electrical: { batteryAmpHours: 200 },
     placement: 'floor',
     notes: 'At 48 lb this is a meaningful weight: place it low and near the centreline to keep the van balanced.',
     keywords: ['battery', 'lithium', 'lifepo4', 'house battery'],
@@ -185,6 +191,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#4a5560',
     weight: 22,
     price: 600,
+    electrical: { watts: 15, hoursPerDay: 6, inverterWatts: 2000 },
     placement: 'wall',
     notes:
       'Wants to be within about 5 feet of the battery: at 2000 W the DC side pulls over 160 A, and long runs need very heavy cable.',
@@ -200,6 +207,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#4a5560',
     weight: 5,
     price: 200,
+    electrical: { watts: 2, hoursPerDay: 10 },
     placement: 'wall',
     notes: 'Mount close to the battery, not close to the panels. Needs a few inches of clearance above for heat.',
     keywords: ['mppt', 'solar', 'charge controller', 'victron'],
@@ -214,6 +222,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#25304a',
     weight: 26,
     price: 200,
+    electrical: { solarWatts: 200 },
     placement: 'ceiling',
     notes:
       'A ProMaster high roof fits two of these alongside a fan with care. Leave room for mounting feet and for the fan to open.',
@@ -243,6 +252,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#c3c8ce',
     weight: 12,
     price: 300,
+    electrical: { watts: 24, hoursPerDay: 8 },
     placement: 'ceiling',
     notes:
       'The single highest-value item in most builds. Fits between the ProMaster roof ribs; cut with the van level and seal generously.',
@@ -258,6 +268,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#7a6b5c',
     weight: 14,
     price: 350,
+    electrical: { watts: 20, hoursPerDay: 6 },
     placement: 'floor',
     notes:
       'Needs a floor penetration for intake, exhaust and fuel. Keep the exhaust away from the sliding door and from where you park your head.',
@@ -273,6 +284,7 @@ export const SYSTEM_ITEMS: readonly LibraryItem[] = [
     color: '#c3c8ce',
     weight: 75,
     price: 2500,
+    electrical: { watts: 1400, hoursPerDay: 4, ac: true },
     placement: 'ceiling',
     notes:
       'At 75 lb this is the heaviest thing on the roof and it sits high, which hurts stability. Check your roof rating and expect it to dominate your solar budget.',

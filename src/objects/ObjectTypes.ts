@@ -54,6 +54,19 @@ export interface ObjectProperties {
   capacityGallons: number;
   /** How full the tank currently is, in US gallons. Never exceeds capacity. */
   fillGallons: number;
+
+  /** Continuous power draw in watts while running. Zero for anything passive. */
+  loadWatts: number;
+  /** Average hours of running per day, used for the energy budget. */
+  loadHoursPerDay: number;
+  /** True when the load runs on inverted AC rather than directly on DC. */
+  loadIsAc: boolean;
+  /** Nominal battery capacity in amp-hours, for batteries. */
+  batteryAmpHours: number;
+  /** Rated output in watts, for solar panels. */
+  solarWatts: number;
+  /** Continuous rating in watts, for inverters. */
+  inverterWatts: number;
   notes: string;
   /**
    * What the object is made from, as a {@link SheetMaterial} key.
@@ -115,6 +128,13 @@ export interface ObjectData {
   capacityGallons?: number;
   /** Current fill in US gallons. */
   fillGallons?: number;
+  /** Electrical properties. Absent in projects saved before they existed. */
+  loadWatts?: number;
+  loadHoursPerDay?: number;
+  loadIsAc?: boolean;
+  batteryAmpHours?: number;
+  solarWatts?: number;
+  inverterWatts?: number;
   notes: string;
   /** Material key. Absent in projects saved before materials existed. */
   material?: string;

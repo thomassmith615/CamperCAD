@@ -41,6 +41,9 @@ export class ObjectInspector {
   private readonly kindReadout: HTMLElement;
   private readonly materialSelect: HTMLSelectElement;
   private readonly materialRow: HTMLElement;
+  private readonly electricalPanel: Panel;
+  private readonly acToggle: HTMLInputElement;
+  private readonly dailyEnergy: HTMLElement;
   private readonly tankPanel: Panel;
   private readonly fillSlider: HTMLInputElement;
   private readonly fluidReadout: HTMLElement;
@@ -125,6 +128,20 @@ export class ObjectInspector {
     this.notesField = new NotesField((value) => this.commit('notes', value));
     details.append(this.notesField.element);
 
+    this.electricalPanel = new Panel('Electrical');
+    this.addNumberField(this.electricalPanel, 'Draw (W)', 'loadWatts', 'number');
+    this.addNumberField(this.electricalPanel, 'Hours/day', 'loadHoursPerDay', 'number');
+    this.acToggle = this.electricalPanel.addToggle('Needs inverter (AC)', false, (checked) =>
+      this.commit('loadIsAc', checked),
+    );
+    this.addNumberField(this.electricalPanel, 'Battery (Ah)', 'batteryAmpHours', 'number');
+    this.addNumberField(this.electricalPanel, 'Solar (W)', 'solarWatts', 'number');
+    this.addNumberField(this.electricalPanel, 'Inverter (W)', 'inverterWatts', 'number');
+    this.dailyEnergy = this.electricalPanel.addReadout('Uses per day', '', true);
+    this.electricalPanel.addHint(
+      'Hours per day is duty cycle. A compressor fridge runs about a third of the time even though it is on continuously.',
+    );
+
     this.panels.push(identity, dimensions, placement, details);
 
     app.bus.on('object:changed', ({ object }) => {
@@ -150,6 +167,10 @@ export class ObjectInspector {
     // The tank panel appears only for objects that hold fluid, rather than
     // sitting inert on every cabinet in the build.
     if (this.target && this.target.get('capacityGallons') > 0) panels.push(this.tankPanel);
+
+    // Shown for anything that draws, stores or makes power, and for nothing
+    // else: a cabinet does not need six blank electrical fields.
+    if (this.target && ObjectInspector.isElectrical(this.target)) panels.push(this.electricalPanel);
     return panels;
   }
 
@@ -212,6 +233,11 @@ export class ObjectInspector {
     this.materialRow.hidden = !isSheet;
     if (isSheet) this.materialSelect.value = object.get('material');
 
+    this.acToggle.checked = object.get('loadIsAc');
+    const watts = object.get('loadWatts');
+    const hours = object.get('loadHoursPerDay');
+    this.dailyEnergy.textContent = watts > 0 ? `${Math.round(watts * hours)} Wh` : '—';
+
     const capacity = object.get('capacityGallons');
     if (capacity > 0) {
       const fill = object.get('fillGallons');
@@ -223,6 +249,16 @@ export class ObjectInspector {
     const depth = object.get('depth');
     const unit = this.app.unit;
     this.footprint.textContent = `${formatLength(width, unit)} × ${formatLength(depth, unit)}`;
+  }
+
+  /** True when an object has any electrical role at all. */
+  private static isElectrical(object: SceneObject): boolean {
+    return (
+      object.get('loadWatts') > 0 ||
+      object.get('batteryAmpHours') > 0 ||
+      object.get('solarWatts') > 0 ||
+      object.get('inverterWatts') > 0
+    );
   }
 
   /** Builds a labelled row wrapping an arbitrary control. */

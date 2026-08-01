@@ -217,7 +217,7 @@ export class Sidebar {
         '<span class="kbd">1</span>–<span class="kbd">6</span> views &nbsp; ' +
         '<span class="kbd">F</span> fit &nbsp; <span class="kbd">G</span> grid &nbsp; ' +
         '<span class="kbd">O</span> ortho &nbsp; <span class="kbd">H</span> balance &nbsp; ' +
-        '<span class="kbd">J</span> materials<br>' +
+        '<span class="kbd">J</span> materials &nbsp; <span class="kbd">K</span> electrical<br>' +
         '<span class="kbd">Ctrl</span>+<span class="kbd">Z</span> undo &nbsp; ' +
         '<span class="kbd">Ctrl</span>+<span class="kbd">D</span> duplicate &nbsp; ' +
         '<span class="kbd">Del</span> delete &nbsp; ' +

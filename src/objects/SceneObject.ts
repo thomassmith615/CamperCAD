@@ -49,6 +49,12 @@ export class SceneObject {
   private price = 0;
   private capacityGallons = 0;
   private fillGallons = 0;
+  private loadWatts = 0;
+  private loadHoursPerDay = 0;
+  private loadIsAc = false;
+  private batteryAmpHours = 0;
+  private solarWatts = 0;
+  private inverterWatts = 0;
   private notes = '';
   private material = 'birch-ply';
   private locked = false;
@@ -214,6 +220,12 @@ export class SceneObject {
       price: this.price,
       capacityGallons: this.capacityGallons,
       fillGallons: this.fillGallons,
+      loadWatts: this.loadWatts,
+      loadHoursPerDay: this.loadHoursPerDay,
+      loadIsAc: this.loadIsAc,
+      batteryAmpHours: this.batteryAmpHours,
+      solarWatts: this.solarWatts,
+      inverterWatts: this.inverterWatts,
       notes: this.notes,
       material: this.material,
       locked: this.locked,
@@ -239,6 +251,12 @@ export class SceneObject {
     this.price = data.price;
     this.capacityGallons = data.capacityGallons ?? 0;
     this.fillGallons = Math.min(data.fillGallons ?? 0, this.capacityGallons);
+    this.loadWatts = data.loadWatts ?? 0;
+    this.loadHoursPerDay = data.loadHoursPerDay ?? 0;
+    this.loadIsAc = data.loadIsAc ?? false;
+    this.batteryAmpHours = data.batteryAmpHours ?? 0;
+    this.solarWatts = data.solarWatts ?? 0;
+    this.inverterWatts = data.inverterWatts ?? 0;
     this.notes = data.notes;
     this.material = data.material ?? 'birch-ply';
     this.locked = data.locked;
@@ -309,6 +327,18 @@ export class SceneObject {
         return this.capacityGallons;
       case 'fillGallons':
         return this.fillGallons;
+      case 'loadWatts':
+        return this.loadWatts;
+      case 'loadHoursPerDay':
+        return this.loadHoursPerDay;
+      case 'loadIsAc':
+        return this.loadIsAc;
+      case 'batteryAmpHours':
+        return this.batteryAmpHours;
+      case 'solarWatts':
+        return this.solarWatts;
+      case 'inverterWatts':
+        return this.inverterWatts;
       case 'notes':
         return this.notes;
       case 'material':
@@ -376,6 +406,24 @@ export class SceneObject {
         break;
       case 'fillGallons':
         this.fillGallons = Math.min(Math.max(0, Number(value)), this.capacityGallons);
+        break;
+      case 'loadWatts':
+        this.loadWatts = Math.max(0, Number(value));
+        break;
+      case 'loadHoursPerDay':
+        this.loadHoursPerDay = Math.min(24, Math.max(0, Number(value)));
+        break;
+      case 'loadIsAc':
+        this.loadIsAc = Boolean(value);
+        break;
+      case 'batteryAmpHours':
+        this.batteryAmpHours = Math.max(0, Number(value));
+        break;
+      case 'solarWatts':
+        this.solarWatts = Math.max(0, Number(value));
+        break;
+      case 'inverterWatts':
+        this.inverterWatts = Math.max(0, Number(value));
         break;
       case 'notes':
         this.notes = String(value);

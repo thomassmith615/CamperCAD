@@ -93,6 +93,27 @@ export interface LibraryItem {
   /** Material key for panels, feeding the cut list. Defaults to birch ply. */
   material?: string;
   /**
+   * Electrical characteristics, for anything that draws, stores or makes power.
+   *
+   * Duty cycle matters more than rated wattage for the energy budget: a fridge
+   * compressor draws 45 W but runs perhaps a third of the time, so its daily
+   * consumption is a third of what its label suggests.
+   */
+  electrical?: {
+    /** Continuous draw while running, in watts. */
+    watts?: number;
+    /** Average running hours per day. */
+    hoursPerDay?: number;
+    /** True when it needs inverted AC. */
+    ac?: boolean;
+    /** Nominal capacity in amp-hours, for batteries. */
+    batteryAmpHours?: number;
+    /** Rated output in watts, for solar panels. */
+    solarWatts?: number;
+    /** Continuous rating in watts, for inverters. */
+    inverterWatts?: number;
+  };
+  /**
    * Whether a new tank arrives full. Defaults to true.
    *
    * Fresh tanks start full because a layout that only balances empty is not a
