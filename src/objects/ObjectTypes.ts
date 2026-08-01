@@ -44,6 +44,16 @@ export interface ObjectProperties {
   rotationZ: number;
   weight: number;
   price: number;
+  /**
+   * Fluid capacity in US gallons. Zero for anything that is not a tank.
+   *
+   * Kept separate from weight because a tank has two weights that matter — dry
+   * and full — and conflating them is how a build ends up over its rear axle
+   * rating on the first trip.
+   */
+  capacityGallons: number;
+  /** How full the tank currently is, in US gallons. Never exceeds capacity. */
+  fillGallons: number;
   notes: string;
   locked: boolean;
   visible: boolean;
@@ -93,6 +103,10 @@ export interface ObjectData {
   color: string;
   weight: number;
   price: number;
+  /** Fluid capacity in US gallons. Absent in projects saved before tanks. */
+  capacityGallons?: number;
+  /** Current fill in US gallons. */
+  fillGallons?: number;
   notes: string;
   locked: boolean;
   visible: boolean;

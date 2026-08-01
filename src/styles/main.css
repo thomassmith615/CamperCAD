@@ -1177,6 +1177,127 @@ body {
   color: var(--accent);
 }
 
+/* ------------------------------------------------------------- load bars */
+
+.load-bars {
+  margin: 12px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.load-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+}
+
+.load-bar__label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.load-bar__value {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--measure);
+  text-align: right;
+}
+
+.load-bar__track {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-3);
+  overflow: hidden;
+}
+
+/* The 90% mark: the point past which there is no room left for crew and gear. */
+.load-bar__track::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 90%;
+  width: 1px;
+  background: var(--text-faint);
+}
+
+.load-bar__fill {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--measure);
+  transition: width 160ms ease, background 160ms ease;
+}
+
+.load-bar.is-caution .load-bar__fill {
+  background: var(--accent);
+}
+
+.load-bar.is-caution .load-bar__value {
+  color: var(--accent);
+}
+
+.load-bar.is-over .load-bar__fill {
+  background: var(--danger);
+}
+
+.load-bar.is-over .load-bar__value {
+  color: var(--danger);
+}
+
+/* --------------------------------------------------------- weight warnings */
+
+.weight-warnings {
+  margin: 10px 0 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+
+.weight-warnings:empty {
+  display: none;
+}
+
+.weight-warnings li {
+  margin-bottom: 6px;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.panel-button {
+  width: 100%;
+  height: 26px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.panel-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.field-slider {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* An overloaded build shows in the toolbar even with the sidebar collapsed. */
+.tool-btn.is-alarm {
+  background: rgba(226, 104, 90, 0.16);
+  border-color: rgba(226, 104, 90, 0.45);
+  color: var(--danger);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition-duration: 0ms !important;

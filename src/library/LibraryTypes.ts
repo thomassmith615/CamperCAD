@@ -88,6 +88,17 @@ export interface LibraryItem {
   weight: number;
   /** Typical retail price in US dollars, or 0 when it varies too much. */
   price: number;
+  /** Fluid capacity in US gallons, for tanks. Omitted for everything else. */
+  capacityGallons?: number;
+  /**
+   * Whether a new tank arrives full. Defaults to true.
+   *
+   * Fresh tanks start full because a layout that only balances empty is not a
+   * layout that works. Waste tanks start empty, since fresh-full and grey-empty
+   * is the state a van actually leaves in — filling both would double-count
+   * water the van never carries at once.
+   */
+  startsFull?: boolean;
   placement: PlacementRule;
   /**
    * Notes seeded onto the created object — clearances, gotchas, sizing rules.

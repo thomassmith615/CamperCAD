@@ -23,6 +23,7 @@ export const SHAPE_ITEMS: readonly LibraryItem[] = [
     color: '#4a7fa5',
     weight: 10,
     price: 140,
+    capacityGallons: 15,
     placement: 'floor',
     notes:
       'Roughly 135 lb full. A round tank wastes the corners but fits where a rectangular one will not; check both before committing.',

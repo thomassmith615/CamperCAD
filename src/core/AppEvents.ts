@@ -9,6 +9,7 @@ import type { ToolId } from '@/tools/ToolTypes';
 import type { AppliedSnap } from '@/snapping/SnapTypes';
 import type { GroupData, LayerData } from '@/objects/StructureTypes';
 import type { InputMode } from '@/input/InputSettings';
+import type { WeightReport } from '@/analysis/WeightTypes';
 
 /**
  * The application's event vocabulary.
@@ -104,6 +105,11 @@ export interface AppEvents {
   'outliner:requested': undefined;
   /** The input device mode changed, whether detected or chosen. */
   'input:mode': { mode: InputMode };
+
+  /** A fresh weight and balance result. Recomputed whenever the design changes. */
+  'weight:changed': { report: WeightReport | null };
+  /** The balance overlay was shown or hidden. */
+  'balance:toggled': { visible: boolean };
 
   /** The library drawer opened or closed. */
   'library:toggled': { open: boolean };

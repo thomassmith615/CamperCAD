@@ -212,6 +212,8 @@ export class ProjectSerializer {
       color: str(value.color, '#c9a227'),
       weight: Math.max(0, num(value.weight, 0)),
       price: Math.max(0, num(value.price, 0)),
+      capacityGallons: Math.max(0, num(value.capacityGallons, 0)),
+      fillGallons: Math.max(0, num(value.fillGallons, 0)),
       notes: typeof value.notes === 'string' ? value.notes : '',
       locked: bool(value.locked, false),
       visible: bool(value.visible, true),

@@ -41,6 +41,8 @@ import { ArrayBuilder } from '@/objects/ArrayBuilder';
 import type { ArrayOptions } from '@/objects/StructureTypes';
 import { AssignLayerCommand, GroupCommand, UngroupCommand } from '@/commands/StructureCommands';
 import { InputSettings, type InputMode } from '@/input/InputSettings';
+import { WeightService } from '@/analysis/WeightService';
+import { BalanceOverlay } from '@/scene/BalanceOverlay';
 import type { AppEvents } from './AppEvents';
 import type { DisplayUnit } from '@/math/Units';
 
@@ -77,6 +79,8 @@ export class Application {
   readonly library = new ObjectLibrary();
   readonly placement: PlacementSolver;
   readonly structure: StructureRegistry;
+  readonly weights: WeightService;
+  private readonly balance = new BalanceOverlay();
   readonly input = new InputSettings();
   private readonly arrays: ArrayBuilder;
 
@@ -122,6 +126,8 @@ export class Application {
     this.measurements = new MeasurementService(this.objects);
     this.placement = new PlacementSolver(this.objects);
     this.structure = new StructureRegistry(this.objects, this.bus);
+    this.weights = new WeightService(this.objects);
+    this.scene.add('helpers', this.balance.group);
     this.arrays = new ArrayBuilder(this.factory);
 
     this.selection.setGroupExpander((objects) => this.structure.expandToGroups(objects));
@@ -136,6 +142,13 @@ export class Application {
       this.structure.refreshVisibility();
     });
     this.bus.on('objects:removed', () => this.structure.pruneGroups());
+
+    // Weight is recomputed from events rather than per frame: it only changes
+    // when the design does, and a full pass over every object each frame would
+    // be wasted work for a number that had not moved.
+    for (const event of ['objects:added', 'objects:removed', 'object:changed'] as const) {
+      this.bus.on(event, () => this.recomputeWeight());
+    }
 
     // Labels live in their own pointer-transparent layer above the canvas so
     // they never intercept a click meant for the model.
@@ -257,8 +270,11 @@ export class Application {
     this.snapping.setVehicle(model);
     this.measurements.setVehicle(model);
     this.placement.setVehicle(model);
+    this.weights.setVehicle(model);
+    this.balance.setAxles(definition.weights);
 
     this.bus.emit('vehicle:loaded', { vehicle: model });
+    this.recomputeWeight();
     return model;
   }
 
@@ -388,6 +404,24 @@ export class Application {
     this.selection.select(copies, 'replace');
   }
 
+  /** Shows or hides the axle and centre-of-gravity overlay. */
+  setBalanceVisible(visible: boolean): void {
+    this.balance.setVisible(visible);
+    this.bus.emit('balance:toggled', { visible });
+    if (visible) this.recomputeWeight();
+  }
+
+  /** True while the balance overlay is drawn. */
+  get isBalanceVisible(): boolean {
+    return this.balance.visible;
+  }
+
+  /** Records measured axle weights from a scale ticket, or clears them. */
+  setMeasuredCurb(front: number | null, rear?: number): void {
+    this.weights.setMeasuredCurb(front, rear);
+    this.recomputeWeight();
+  }
+
   /** Sets the input device mode explicitly. */
   setInputMode(mode: InputMode): void {
     this.input.setMode(mode);
@@ -481,6 +515,7 @@ export class Application {
     this.gizmo.dispose();
     this.outline.dispose();
     this.snapIndicator.dispose();
+    this.balance.dispose();
     this.dimensions.dispose();
     this.labels.dispose();
     this.controls.dispose();
@@ -531,6 +566,24 @@ export class Application {
       drawCalls: stats.drawCalls,
       triangles: stats.triangles,
     });
+  }
+
+  /**
+   * Recomputes weight and updates everything that depends on it.
+   *
+   * Publishing the report rather than letting each consumer compute its own
+   * keeps the panel, the overlay and any future consumer showing the same
+   * numbers — two independently derived answers to "is this over GVWR" is a bug
+   * waiting to be reported.
+   */
+  private recomputeWeight(): void {
+    const report = this.weights.report();
+    this.bus.emit('weight:changed', { report });
+
+    if (report) {
+      const over = report.checks.some((check) => check.status === 'over');
+      this.balance.setCentre(report.buildCentre, over);
+    }
   }
 
   /** Holds the camera still for the duration of a programmatic move. */
@@ -662,6 +715,9 @@ export class Application {
           break;
         case 'KeyG':
           this.setGridVisible(!this.grid.visible);
+          break;
+        case 'KeyH':
+          this.setBalanceVisible(!this.balance.visible);
           break;
         case 'KeyO':
           this.setProjection(this.cameras.projection === 'perspective' ? 'orthographic' : 'perspective');

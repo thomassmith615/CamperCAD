@@ -86,6 +86,12 @@ export class ObjectFactory {
     object.mesh.scale.set(...item.dimensions);
     object.set('weight', item.weight);
     object.set('price', item.price);
+
+    if (item.capacityGallons) {
+      object.set('capacityGallons', item.capacityGallons);
+      object.set('fillGallons', item.startsFull === false ? 0 : item.capacityGallons);
+    }
+
     object.set('notes', item.notes);
     object.mesh.updateMatrixWorld(true);
     return object;

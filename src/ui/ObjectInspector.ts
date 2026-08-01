@@ -38,6 +38,9 @@ export class ObjectInspector {
   private readonly visibleToggle: HTMLInputElement;
   private readonly footprint: HTMLElement;
   private readonly kindReadout: HTMLElement;
+  private readonly tankPanel: Panel;
+  private readonly fillSlider: HTMLInputElement;
+  private readonly fluidReadout: HTMLElement;
   private readonly profileEditor: ProfileEditor;
 
   constructor(app: Application) {
@@ -82,6 +85,26 @@ export class ObjectInspector {
     const details = new Panel('Details', true);
     this.addNumberField(details, 'Weight (lb)', 'weight', 'number');
     this.addNumberField(details, 'Price', 'price', 'number');
+
+    this.tankPanel = new Panel('Tank');
+    this.addNumberField(this.tankPanel, 'Capacity (gal)', 'capacityGallons', 'number');
+    this.addNumberField(this.tankPanel, 'Fill (gal)', 'fillGallons', 'number');
+    this.fillSlider = document.createElement('input');
+    this.fillSlider.type = 'range';
+    this.fillSlider.className = 'field-slider';
+    this.fillSlider.min = '0';
+    this.fillSlider.max = '100';
+    this.fillSlider.step = '1';
+    this.fillSlider.addEventListener('input', () => {
+      if (!this.target) return;
+      const capacity = this.target.get('capacityGallons');
+      this.commit('fillGallons', (Number(this.fillSlider.value) / 100) * capacity);
+    });
+    this.tankPanel.append(ObjectInspector.row('', this.fillSlider));
+    this.fluidReadout = this.tankPanel.addReadout('Fluid weight', '', true);
+    this.tankPanel.addHint(
+      'Water is 8.34 lb per gallon. A full 20 gallon tank adds 167 lb — check the rear axle after moving one.',
+    );
     this.notesField = new NotesField((value) => this.commit('notes', value));
     details.append(this.notesField.element);
 
@@ -107,6 +130,9 @@ export class ObjectInspector {
   get activePanels(): Panel[] {
     const panels = [...this.panels];
     if (this.profileEditor.isApplicable) panels.splice(2, 0, this.profileEditor.panel);
+    // The tank panel appears only for objects that hold fluid, rather than
+    // sitting inert on every cabinet in the build.
+    if (this.target && this.target.get('capacityGallons') > 0) panels.push(this.tankPanel);
     return panels;
   }
 
@@ -160,6 +186,13 @@ export class ObjectInspector {
     for (const [key, label] of labels) {
       const field = this.numberFields.get(key as ObjectPropertyKey);
       field?.setLabel(label);
+    }
+
+    const capacity = object.get('capacityGallons');
+    if (capacity > 0) {
+      const fill = object.get('fillGallons');
+      this.fillSlider.value = String(Math.round((fill / capacity) * 100));
+      this.fluidReadout.textContent = `${Math.round(fill * 8.34)} lb`;
     }
 
     const width = object.get('width');

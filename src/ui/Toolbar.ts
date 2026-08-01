@@ -34,6 +34,7 @@ export class Toolbar {
   private orthographicButton!: HTMLButtonElement;
   private gridButton!: HTMLButtonElement;
   private snapButton!: HTMLButtonElement;
+  private balanceButton!: HTMLButtonElement;
   private spacingSelect!: HTMLSelectElement;
   private undoButton!: HTMLButtonElement;
   private redoButton!: HTMLButtonElement;
@@ -107,6 +108,17 @@ export class Toolbar {
     });
     app.bus.on('outliner:requested', () => this.outlinerPanel.setOpen(!this.outlinerPanel.isOpen));
     app.bus.on('outliner:toggled', ({ open }) => this.outlinerButton.classList.toggle('is-active', open));
+    app.bus.on('balance:toggled', ({ visible }) => this.balanceButton.classList.toggle('is-active', visible));
+
+    // The toolbar is where an overload becomes visible without the sidebar
+    // open, so the balance button carries the alarm.
+    app.bus.on('weight:changed', ({ report }) => {
+      const over = report?.checks.some((check) => check.status === 'over') ?? false;
+      this.balanceButton.classList.toggle('is-alarm', over);
+      this.balanceButton.title = over
+        ? 'Over a weight rating — open the sidebar for detail'
+        : 'Show axles and centre of gravity — H';
+    });
 
     this.syncProjection('perspective');
     this.syncGrid(true);
@@ -129,7 +141,7 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.7.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.8.0</span>';
     return brand;
   }
 
@@ -232,6 +244,10 @@ export class Toolbar {
       this.app.setSnapEnabled(!this.app.snapping.settings.enabled),
     );
 
+    this.balanceButton = this.iconButton('balance', 'Show axles and centre of gravity — H', () =>
+      this.app.setBalanceVisible(!this.app.isBalanceVisible),
+    );
+
     this.spacingSelect = document.createElement('select');
     this.spacingSelect.className = 'field-select';
     this.spacingSelect.title = 'Grid spacing';
@@ -266,7 +282,7 @@ export class Toolbar {
       this.app.setInputMode(this.inputSelect.value as InputMode),
     );
 
-    group.append(this.gridButton, this.snapButton, this.spacingSelect, unitSelect, this.inputSelect);
+    group.append(this.gridButton, this.snapButton, this.balanceButton, this.spacingSelect, unitSelect, this.inputSelect);
     return group;
   }
 

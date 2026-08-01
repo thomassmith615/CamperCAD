@@ -17,6 +17,7 @@ const PATHS: Record<string, string> = {
   layers: '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 14 9 5 9-5"/>',
   cursor: '<path d="m5 3 6.5 16 2.2-6.3L20 10.5 5 3Z"/>',
   box: '<path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9"/>',
+  balance: '<path d="M12 3v18M7 21h10"/><path d="M3 8h18"/><path d="m6 8-3 6h6L6 8ZM18 8l-3 6h6l-3-6Z"/>',
   cylinder: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12a7 3 0 0 0 14 0V6"/>',
   panel: '<path d="M4 3h13l3 3v15H7l-3-3V3Z"/><path d="M17 3v3h3M4 18h13v3"/>',
   extrusion: '<path d="M4 20V8l5-5h11v8h-7v9H4Z"/><path d="M13 11 20 3M4 8h5V3"/>',

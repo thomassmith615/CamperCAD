@@ -47,6 +47,8 @@ export class SceneObject {
   private label: string;
   private weight = 0;
   private price = 0;
+  private capacityGallons = 0;
+  private fillGallons = 0;
   private notes = '';
   private locked = false;
   private layerId = '';
@@ -209,6 +211,8 @@ export class SceneObject {
       color: `#${this.mesh.material.color.getHexString()}`,
       weight: this.weight,
       price: this.price,
+      capacityGallons: this.capacityGallons,
+      fillGallons: this.fillGallons,
       notes: this.notes,
       locked: this.locked,
       visible: this.mesh.visible,
@@ -231,6 +235,8 @@ export class SceneObject {
     this.mesh.visible = data.visible;
     this.weight = data.weight;
     this.price = data.price;
+    this.capacityGallons = data.capacityGallons ?? 0;
+    this.fillGallons = Math.min(data.fillGallons ?? 0, this.capacityGallons);
     this.notes = data.notes;
     this.locked = data.locked;
     this.layerId = data.layerId ?? '';
@@ -296,6 +302,10 @@ export class SceneObject {
         return this.weight;
       case 'price':
         return this.price;
+      case 'capacityGallons':
+        return this.capacityGallons;
+      case 'fillGallons':
+        return this.fillGallons;
       case 'notes':
         return this.notes;
       case 'locked':
@@ -353,6 +363,14 @@ export class SceneObject {
         break;
       case 'price':
         this.price = Math.max(0, Number(value));
+        break;
+      case 'capacityGallons':
+        this.capacityGallons = Math.max(0, Number(value));
+        // Shrinking a tank must not leave more fluid in it than it can hold.
+        this.fillGallons = Math.min(this.fillGallons, this.capacityGallons);
+        break;
+      case 'fillGallons':
+        this.fillGallons = Math.min(Math.max(0, Number(value)), this.capacityGallons);
         break;
       case 'notes':
         this.notes = String(value);

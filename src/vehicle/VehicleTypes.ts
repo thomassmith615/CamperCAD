@@ -1,3 +1,5 @@
+import type { VehicleWeightSpec } from '@/analysis/WeightTypes';
+
 /**
  * Data model for a supported vehicle.
  *
@@ -67,6 +69,9 @@ export interface VehicleDefinition {
 
   /** Opening in the cab bulkhead panel. */
   cabOpening: PanelOpeningSpec;
+
+  /** Weight ratings and axle geometry, for the balance calculation. */
+  weights: VehicleWeightSpec;
 
   /** Provenance for every measurement above. Surfaced in the inspector. */
   sourceNotes: readonly string[];

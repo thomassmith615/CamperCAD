@@ -5,6 +5,7 @@ import { formatLength, isMetric } from '@/math/Units';
 import { Panel } from './Panel';
 import { ObjectInspector } from './ObjectInspector';
 import { ClearancePanel } from './ClearancePanel';
+import { WeightPanel } from './WeightPanel';
 
 /** Heights at which interior width is reported, in inches. */
 const WIDTH_SAMPLE_HEIGHTS = [12, 24, 36, 48, 60];
@@ -27,6 +28,7 @@ export class Sidebar {
   private readonly updaters: Array<() => void> = [];
   private readonly inspector: ObjectInspector;
   private readonly clearances: ClearancePanel;
+  private readonly weights: WeightPanel;
 
   private vehiclePanels: HTMLElement[] = [];
   private multiPanel: Panel | null = null;
@@ -39,6 +41,7 @@ export class Sidebar {
     this.app = app;
     this.inspector = new ObjectInspector(app);
     this.clearances = new ClearancePanel(app);
+    this.weights = new WeightPanel(app);
 
     app.bus.on('vehicle:loaded', ({ vehicle }) => {
       this.buildVehiclePanels(vehicle);
@@ -82,7 +85,10 @@ export class Sidebar {
       return;
     }
 
-    this.host.replaceChildren(...this.vehiclePanels);
+    // Weight sits directly under the vehicle summary: it is a property of the
+    // whole build, and it is the first thing worth checking after a change.
+    this.host.replaceChildren(this.vehiclePanels[0], this.weights.panel.element, ...this.vehiclePanels.slice(1));
+    this.weights.refresh();
     this.refresh();
   }
 
@@ -210,7 +216,7 @@ export class Sidebar {
         '<span class="kbd">R</span> resize<br>' +
         '<span class="kbd">1</span>–<span class="kbd">6</span> views &nbsp; ' +
         '<span class="kbd">F</span> fit &nbsp; <span class="kbd">G</span> grid &nbsp; ' +
-        '<span class="kbd">O</span> ortho<br>' +
+        '<span class="kbd">O</span> ortho &nbsp; <span class="kbd">H</span> balance<br>' +
         '<span class="kbd">Ctrl</span>+<span class="kbd">Z</span> undo &nbsp; ' +
         '<span class="kbd">Ctrl</span>+<span class="kbd">D</span> duplicate &nbsp; ' +
         '<span class="kbd">Del</span> delete &nbsp; ' +

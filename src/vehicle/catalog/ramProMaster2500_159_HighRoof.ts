@@ -85,6 +85,30 @@ export const RAM_PROMASTER_2500_159_HIGH_ROOF: VehicleDefinition = {
     sillHeight: 0,
   },
 
+  weights: {
+    gvwr: 9350,
+    frontGawr: 4629,
+    rearGawr: 5291,
+
+    // Front-biased because the ProMaster is front-wheel drive: the engine,
+    // transaxle and both seats sit ahead of or over the front axle.
+    curbFront: 2950,
+    curbRear: 2150,
+
+    // Rear axle sits at the wheel-well centre, and the front axle one
+    // wheelbase ahead of it — which places it inside the cab, as it should be
+    // on a cab-forward van.
+    frontAxleZ: -114,
+    rearAxleZ: 45,
+
+    sourceNotes: [
+      'GVWR 9,350 lb, front GAWR 4,629 lb, rear GAWR 5,291 lb — Ram ProMaster fleet specifications.',
+      'Curb weights are an estimate for a base cargo configuration and are split front/rear by the roughly 58/42 bias of a front-wheel-drive van. Real vans vary by several hundred pounds with options and fuel.',
+      'Axle positions are derived from the 159" wheelbase and the wheel-well centre, not measured directly.',
+      'Weigh your own van at a truck scale and enter the figures: every number here is a starting point, not a substitute.',
+    ],
+  },
+
   sourceNotes: [
     'Interior length 149.9", max width 75.6", roof height 76.4" — Ram published cargo specifications.',
     'Side door opening 48.5" wide, rear door opening 61" wide, wheel wells 35 × 17 × 9", 56" between wheel wells — Upfit Supply ProMaster 159" WB measurement guide.',
