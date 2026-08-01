@@ -67,7 +67,7 @@ export class Sidebar {
 
       // Clearances sit directly under the object's own dimensions: the two are
       // read together when deciding whether a piece fits.
-      const panels = this.inspector.panels.map((panel) => panel.element);
+      const panels = this.inspector.activePanels.map((panel) => panel.element);
       panels.splice(2, 0, this.clearances.panel.element);
       this.host.replaceChildren(...panels);
       return;
@@ -202,6 +202,8 @@ export class Sidebar {
       'Left-drag to select · middle-drag to orbit · right-drag to pan · scroll to zoom<br>' +
         'Hold <span class="kbd">Space</span> to orbit with the left button.<br><br>' +
         '<span class="kbd">Q</span> select &nbsp; <span class="kbd">B</span> box &nbsp; ' +
+        '<span class="kbd">C</span> cylinder &nbsp; <span class="kbd">P</span> panel &nbsp; ' +
+        '<span class="kbd">X</span> extrusion<br>' +
         '<span class="kbd">M</span> measure &nbsp; <span class="kbd">L</span> library &nbsp; ' +
         '<span class="kbd">Shift</span>+<span class="kbd">L</span> outliner &nbsp; ' +
         '<span class="kbd">W</span> move &nbsp; <span class="kbd">E</span> rotate &nbsp; ' +

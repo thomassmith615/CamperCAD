@@ -129,7 +129,7 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.6.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.7.0</span>';
     return brand;
   }
 
@@ -138,7 +138,12 @@ export class Toolbar {
     const group = this.groupElement();
 
     const select = this.button('cursor', 'Select', 'Select and marquee — Q', () => this.app.setTool('select'));
-    const box = this.button('box', 'Box', 'Place a box on the floor — B', () => this.app.setTool('create-box'));
+    const box = this.button('box', 'Box', 'Place a box — B', () => this.app.beginCreating('box'));
+    const cylinder = this.iconButton('cylinder', 'Place a cylinder — C', () => this.app.beginCreating('cylinder'));
+    const panel = this.iconButton('panel', 'Place a panel — P', () => this.app.beginCreating('panel'));
+    const extrusion = this.iconButton('extrusion', 'Place a shaped extrusion — X', () =>
+      this.app.beginCreating('extrusion'),
+    );
     const measure = this.button('ruler', 'Measure', 'Measure between two points — M', () =>
       this.app.setTool('measure'),
     );
@@ -152,10 +157,10 @@ export class Toolbar {
     );
 
     this.toolButtons.set('select', select);
-    this.toolButtons.set('create-box', box);
+    this.toolButtons.set('create-shape', box);
     this.toolButtons.set('measure', measure);
 
-    group.append(this.libraryButton, this.outlinerButton, select, box, measure);
+    group.append(this.libraryButton, this.outlinerButton, select, box, cylinder, panel, extrusion, measure);
     return group;
   }
 

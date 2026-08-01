@@ -1,5 +1,6 @@
 import { SceneObject } from './SceneObject';
-import { DEFAULT_BOX_SIZE, type ObjectData, type ObjectKind } from './ObjectTypes';
+import { KIND_DEFAULT_SIZE, type ObjectData, type ObjectKind } from './ObjectTypes';
+import { PROFILE_PRESETS } from '@/geometry/ProfileShapes';
 import type { LibraryItem } from '@/library/LibraryTypes';
 
 /** Default colour for new objects: birch plywood, the usual carcass material. */
@@ -8,6 +9,9 @@ const DEFAULT_COLOR = '#c9a227';
 /** Per-kind display names, used to name objects as they are created. */
 const KIND_LABELS: Record<ObjectKind, string> = {
   box: 'Box',
+  cylinder: 'Cylinder',
+  panel: 'Panel',
+  extrusion: 'Extrusion',
 };
 
 /**
@@ -37,7 +41,16 @@ export class ObjectFactory {
     this.counters.set(kind, index);
 
     const object = new SceneObject(ObjectFactory.createId(), kind, `${KIND_LABELS[kind]} ${index}`, DEFAULT_COLOR);
-    object.mesh.scale.set(...DEFAULT_BOX_SIZE);
+    object.mesh.scale.set(...KIND_DEFAULT_SIZE[kind]);
+
+    // An extrusion with no profile has nothing to extrude, so it starts from
+    // the first preset rather than as an invisible object.
+    if (object.hasProfile) {
+      const preset = PROFILE_PRESETS[0];
+      object.setProfile(preset.build());
+      object.mesh.scale.y = KIND_DEFAULT_SIZE[kind][1];
+    }
+
     object.mesh.updateMatrixWorld(true);
     return object;
   }
@@ -63,6 +76,12 @@ export class ObjectFactory {
       index === 1 ? item.name : `${item.name} ${index}`,
       item.color,
     );
+
+    // An extrusion from the library needs a starting outline before its
+    // dimensions mean anything, since setProfile rewrites width and depth.
+    if (object.hasProfile) {
+      object.setProfile(PROFILE_PRESETS[0].build());
+    }
 
     object.mesh.scale.set(...item.dimensions);
     object.set('weight', item.weight);

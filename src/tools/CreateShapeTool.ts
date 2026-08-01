@@ -6,29 +6,36 @@ import type { CommandStack } from '@/commands/CommandStack';
 import { AddObjectCommand } from '@/commands/AddObjectCommand';
 import type { ObjectFactory } from '@/objects/ObjectFactory';
 import type { ObjectStore } from '@/objects/ObjectStore';
-import { DEFAULT_BOX_SIZE } from '@/objects/ObjectTypes';
+import { KIND_DEFAULT_SIZE, type ObjectKind } from '@/objects/ObjectTypes';
+import { geometryRegistry } from '@/objects/SceneObject';
+import { KIND_INFO } from '@/geometry/GeometryRegistry';
+import { PROFILE_PRESETS } from '@/geometry/ProfileShapes';
 import type { SelectionManager } from '@/selection/SelectionManager';
 import type { ToolManager } from './ToolManager';
 import type { Tool, ToolId } from './ToolTypes';
 
 /**
- * Places new boxes on the van floor.
+ * Places new primitives on the van floor.
+ *
+ * Replaces the box-only tool: because every kind honours the same unit-box
+ * contract, one tool covers all of them and the only thing that changes between
+ * a box and a cylinder is which geometry the ghost shows.
  *
  * A translucent ghost follows the cursor at the position the object would take,
  * snapped to the grid, so placement is committed to only after the user can see
  * the result. Placement is on the floor plane rather than on whatever surface
- * happens to be under the cursor; stacking onto other objects is surface
- * snapping, which belongs with the rest of the snapping work rather than being
- * half-implemented here.
+ * happens to be under the cursor; stacking onto other objects is what the
+ * library's `surface` placement rule does, and duplicating it here would give
+ * two subtly different behaviours for the same gesture.
  *
  * The tool returns to selection after one placement, which is what makes the
  * new object immediately editable — the overwhelmingly common next action.
  */
-export class CreateBoxTool implements Tool {
-  readonly id: ToolId = 'create-box';
-  readonly label = 'Add box';
+export class CreateShapeTool implements Tool {
+  readonly id: ToolId = 'create-shape';
   readonly cursor = 'crosshair';
 
+  private readonly canvas: HTMLCanvasElement;
   private readonly cameras: CameraManager;
   private readonly grid: GridManager;
   private readonly factory: ObjectFactory;
@@ -36,12 +43,14 @@ export class CreateBoxTool implements Tool {
   private readonly stack: CommandStack;
   private readonly selection: SelectionManager;
   private readonly tools: ToolManager;
-  private readonly canvas: HTMLCanvasElement;
 
   private readonly raycaster = new THREE.Raycaster();
   private readonly floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  private readonly ghost: THREE.Mesh;
+  private readonly ghost: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   private readonly point = new THREE.Vector3();
+  private readonly ownedGhostGeometry = new Set<THREE.BufferGeometry>();
+
+  private kind: ObjectKind = 'box';
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -64,7 +73,7 @@ export class CreateBoxTool implements Tool {
     this.tools = tools;
 
     this.ghost = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
+      new THREE.BufferGeometry(),
       new THREE.MeshStandardMaterial({
         color: 0xe2a44a,
         transparent: true,
@@ -74,9 +83,26 @@ export class CreateBoxTool implements Tool {
       }),
     );
     this.ghost.name = 'Placement ghost';
-    this.ghost.scale.set(...DEFAULT_BOX_SIZE);
     this.ghost.visible = false;
     scene.helperGroup.add(this.ghost);
+
+    this.applyKind('box');
+  }
+
+  /** Label reflects the kind, so the toolbar and status bar stay accurate. */
+  get label(): string {
+    return `Add ${KIND_INFO[this.kind].label.toLowerCase()}`;
+  }
+
+  /** The kind that will be created on the next click. */
+  get activeKind(): ObjectKind {
+    return this.kind;
+  }
+
+  /** Arms the tool with a kind and activates it. */
+  beginCreating(kind: ObjectKind): void {
+    this.applyKind(kind);
+    this.tools.activate('create-shape');
   }
 
   activate(): void {
@@ -97,7 +123,7 @@ export class CreateBoxTool implements Tool {
     if (event.button !== 0) return;
     if (!this.floorPoint(event)) return;
 
-    const object = this.factory.create('box');
+    const object = this.factory.create(this.kind);
     object.mesh.position.copy(this.point);
     object.mesh.updateMatrixWorld(true);
 
@@ -108,6 +134,31 @@ export class CreateBoxTool implements Tool {
 
   onCancel(): void {
     this.tools.activate('select');
+  }
+
+  /** Frees any ghost geometry this tool owns. */
+  dispose(): void {
+    for (const geometry of this.ownedGhostGeometry) geometry.dispose();
+    this.ownedGhostGeometry.clear();
+    this.ghost.material.dispose();
+  }
+
+  /** Points the ghost at a kind's geometry and default proportions. */
+  private applyKind(kind: ObjectKind): void {
+    this.kind = kind;
+
+    const profile = KIND_INFO[kind].hasProfile ? PROFILE_PRESETS[0].build() : undefined;
+    const { geometry, owned } = geometryRegistry().create(kind, profile);
+
+    if (this.ownedGhostGeometry.has(this.ghost.geometry)) {
+      this.ownedGhostGeometry.delete(this.ghost.geometry);
+      this.ghost.geometry.dispose();
+    }
+
+    this.ghost.geometry = geometry;
+    if (owned) this.ownedGhostGeometry.add(geometry);
+
+    this.ghost.scale.set(...KIND_DEFAULT_SIZE[kind]);
   }
 
   /**

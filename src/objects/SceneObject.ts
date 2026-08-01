@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { GeometryRegistry, KIND_INFO } from '@/geometry/GeometryRegistry';
+import { isProfileUsable, profileBounds, type ProfilePoint } from '@/geometry/ProfileShapes';
 import {
   MIN_DIMENSION,
   type ObjectData,
@@ -10,23 +12,28 @@ import {
 } from './ObjectTypes';
 
 /**
- * Unit geometry shared by every box in the scene.
+ * The geometry source shared by every object.
  *
- * It is translated so the box spans 0..1 in Y and −0.5..0.5 in X and Z, which
- * puts the object's origin at the **centre of its bottom face**. That choice
- * runs through the whole application: an object at `y = 0` sits on the floor,
- * the scale gizmo grows a cabinet upward instead of through the subfloor, and
- * "distance to floor" is just `position.y`.
+ * Module-level rather than injected because geometry identity must be global:
+ * two objects of the same kind have to share one buffer, and an object created
+ * by the factory, by a project load and by an undo must all get the same one.
  */
-const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+const GEOMETRY = new GeometryRegistry();
+
+/** Exposes the registry so the UI can build matching ghosts and outlines. */
+export function geometryRegistry(): GeometryRegistry {
+  return GEOMETRY;
+}
 
 /**
  * A user-placed object in the design.
  *
- * Dimensions are carried by the mesh's **scale** against shared unit geometry
- * rather than by rebuilt geometry. Resizing is then a matrix update instead of
- * a vertex buffer upload, hundreds of objects share one geometry, and the scale
- * gizmo edits width, height and depth directly with no translation layer.
+ * Dimensions are carried by the mesh's **scale** against normalised unit
+ * geometry rather than by rebuilt geometry. Resizing is then a matrix update
+ * instead of a vertex buffer upload, objects of a kind share one geometry, and
+ * the scale gizmo edits width, height and depth directly with no translation
+ * layer. {@link GeometryRegistry} guarantees every kind honours that contract,
+ * so a cylinder and a box respond to the same scale identically.
  *
  * All state is exposed through {@link get} and {@link set} over a flat property
  * map, so the inspector and the undo system never need to know which underlying
@@ -35,7 +42,7 @@ const UNIT_BOX = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
 export class SceneObject {
   readonly id: string;
   readonly kind: ObjectKind;
-  readonly mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>;
+  readonly mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
 
   private label: string;
   private weight = 0;
@@ -44,6 +51,8 @@ export class SceneObject {
   private locked = false;
   private layerId = '';
   private groupId = '';
+  private profilePoints: ProfilePoint[] = [];
+  private ownsGeometry = false;
 
   /**
    * @param id Stable identifier, unique within the project.
@@ -62,11 +71,52 @@ export class SceneObject {
       metalness: 0.04,
     });
 
-    this.mesh = new THREE.Mesh(UNIT_BOX, material);
+    const { geometry, owned } = GEOMETRY.create(kind);
+    this.ownsGeometry = owned;
+
+    this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = name;
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = true;
     this.mesh.userData.objectId = id;
+  }
+
+  /** True when this kind carries an editable polygon profile. */
+  get hasProfile(): boolean {
+    return KIND_INFO[this.kind].hasProfile;
+  }
+
+  /** The polygon profile, empty for kinds that do not use one. */
+  get profile(): readonly ProfilePoint[] {
+    return this.profilePoints;
+  }
+
+  /**
+   * Replaces the profile and rebuilds the geometry.
+   *
+   * The object's width and depth are set from the profile's own bounds, so a
+   * profile typed in inches produces an object of exactly that size rather than
+   * one stretched to whatever scale it happened to have. Height is preserved,
+   * since it is not part of the profile.
+   *
+   * @returns False when the polygon is degenerate, leaving the object unchanged.
+   */
+  setProfile(points: readonly ProfilePoint[]): boolean {
+    if (!this.hasProfile || !isProfileUsable(points)) return false;
+
+    this.profilePoints = points.map(([x, z]) => [x, z] as ProfilePoint);
+    this.rebuildGeometry();
+
+    const bounds = profileBounds(this.profilePoints);
+    this.mesh.scale.x = Math.max(MIN_DIMENSION, bounds.width);
+    this.mesh.scale.z = Math.max(MIN_DIMENSION, bounds.depth);
+    this.mesh.updateMatrixWorld(true);
+    return true;
+  }
+
+  /** Fresh edge geometry matching this object, for the selection outline. */
+  createEdges(): { geometry: THREE.BufferGeometry; owned: boolean } {
+    return GEOMETRY.createEdges(this.kind, this.profilePoints);
   }
 
   /** Display name. Kept in sync with the mesh name for debugging. */
@@ -164,6 +214,9 @@ export class SceneObject {
       visible: this.mesh.visible,
       layerId: this.layerId,
       groupId: this.groupId,
+      ...(this.profilePoints.length > 0
+        ? { profile: this.profilePoints.map(([x, z]) => [x, z] as [number, number]) }
+        : {}),
     };
   }
 
@@ -182,12 +235,35 @@ export class SceneObject {
     this.locked = data.locked;
     this.layerId = data.layerId ?? '';
     this.groupId = data.groupId ?? '';
+
+    if (this.hasProfile && data.profile && isProfileUsable(data.profile)) {
+      this.profilePoints = data.profile.map(([x, z]) => [x, z] as ProfilePoint);
+      this.rebuildGeometry();
+      // Scale is restored from the saved dimensions afterwards, so a profile
+      // the user stretched keeps the size they left it at.
+      this.mesh.scale.fromArray(data.dimensions);
+    }
+
     this.mesh.updateMatrixWorld(true);
   }
 
-  /** Frees this object's material. Geometry is shared and never disposed. */
+  /**
+   * Frees this object's resources.
+   *
+   * Geometry is disposed only when this object owns it. Shared kind geometry
+   * outlives every object using it and must never be freed here.
+   */
   dispose(): void {
     this.mesh.material.dispose();
+    if (this.ownsGeometry) this.mesh.geometry.dispose();
+  }
+
+  /** Swaps in geometry for the current profile, freeing any it replaces. */
+  private rebuildGeometry(): void {
+    const { geometry, owned } = GEOMETRY.create(this.kind, this.profilePoints);
+    if (this.ownsGeometry) this.mesh.geometry.dispose();
+    this.mesh.geometry = geometry;
+    this.ownsGeometry = owned;
   }
 
   /** Reads any property as its underlying value type. */

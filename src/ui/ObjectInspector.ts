@@ -2,6 +2,8 @@ import type { Application } from '@/core/Application';
 import type { SceneObject } from '@/objects/SceneObject';
 import type { ObjectProperties, ObjectPropertyKey } from '@/objects/ObjectTypes';
 import { formatLength } from '@/math/Units';
+import { KIND_INFO } from '@/geometry/GeometryRegistry';
+import { ProfileEditor } from './ProfileEditor';
 import { Panel } from './Panel';
 import { ColorField, NotesField, NumberField, TextField } from './Fields';
 
@@ -35,6 +37,8 @@ export class ObjectInspector {
   private readonly lockToggle: HTMLInputElement;
   private readonly visibleToggle: HTMLInputElement;
   private readonly footprint: HTMLElement;
+  private readonly kindReadout: HTMLElement;
+  private readonly profileEditor: ProfileEditor;
 
   constructor(app: Application) {
     this.app = app;
@@ -63,6 +67,9 @@ export class ObjectInspector {
     this.addNumberField(dimensions, 'Depth', 'depth', 'length');
     this.footprint = dimensions.addReadout('Footprint', '', true);
 
+    this.kindReadout = identity.addReadout('Type', '');
+    this.profileEditor = new ProfileEditor(app);
+
     const placement = new Panel('Placement');
     this.addNumberField(placement, 'X', 'positionX', 'length');
     this.addNumberField(placement, 'Y (floor)', 'positionY', 'length');
@@ -90,9 +97,23 @@ export class ObjectInspector {
     });
   }
 
+  /**
+   * Panels for the current target, in display order.
+   *
+   * The profile editor only appears for kinds that have one, rather than being
+   * shown empty: a panel that is inert for three of the four object kinds is
+   * noise in a 320-pixel sidebar.
+   */
+  get activePanels(): Panel[] {
+    const panels = [...this.panels];
+    if (this.profileEditor.isApplicable) panels.splice(2, 0, this.profileEditor.panel);
+    return panels;
+  }
+
   /** Points the inspector at an object, or at nothing. */
   setTarget(object: SceneObject | null): void {
     this.target = object;
+    this.profileEditor.setTarget(object);
     this.refresh();
   }
 
@@ -123,6 +144,22 @@ export class ObjectInspector {
       field.setValue(object.get(key) as number);
       const locked = this.app.structure.isLocked(object);
       field.setDisabled(locked && key !== 'weight' && key !== 'price');
+    }
+
+    // Dimension labels are per kind: a cylinder's X and Z are one diameter,
+    // and a panel's Z is its thickness. Labelling them all "width and depth"
+    // would invite people to type two different diameters.
+    const info = KIND_INFO[object.kind];
+    this.kindReadout.textContent = info.label;
+
+    const labels: Array<[string, string]> = [
+      ['width', info.dimensionLabels[0]],
+      ['height', info.dimensionLabels[1]],
+      ['depth', info.dimensionLabels[2]],
+    ];
+    for (const [key, label] of labels) {
+      const field = this.numberFields.get(key as ObjectPropertyKey);
+      field?.setLabel(label);
     }
 
     const width = object.get('width');

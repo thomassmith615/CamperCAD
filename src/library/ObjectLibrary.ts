@@ -1,9 +1,10 @@
 import { CABINETRY_ITEMS } from './catalog/cabinetry';
 import { SYSTEM_ITEMS } from './catalog/systems';
+import { SHAPE_ITEMS } from './catalog/shapes';
 import { CATEGORY_ORDER, matchesQuery, type LibraryCategory, type LibraryItem } from './LibraryTypes';
 
 /** Every catalog entry, assembled from the per-domain files. */
-const ITEMS: readonly LibraryItem[] = [...CABINETRY_ITEMS, ...SYSTEM_ITEMS];
+const ITEMS: readonly LibraryItem[] = [...CABINETRY_ITEMS, ...SYSTEM_ITEMS, ...SHAPE_ITEMS];
 
 /**
  * The object library.

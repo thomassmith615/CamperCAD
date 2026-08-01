@@ -12,8 +12,17 @@
  * property map is free to change with the UI.
  */
 
-/** Kinds of object the factory can create. Extended per object-library entry. */
-export type ObjectKind = 'box';
+/**
+ * Kinds of object the factory can create.
+ *
+ * A kind is a *geometry* distinction, not a semantic one. A water tank and a
+ * cabinet are both boxes; a round tank and a pipe are both cylinders. Semantics
+ * come from the library item that created the object, not from its kind.
+ */
+export type ObjectKind = 'box' | 'cylinder' | 'panel' | 'extrusion';
+
+/** Every kind, in menu order. */
+export const OBJECT_KINDS: readonly ObjectKind[] = ['box', 'cylinder', 'panel', 'extrusion'];
 
 /**
  * Every editable property of an object, flattened to scalars.
@@ -43,6 +52,19 @@ export interface ObjectProperties {
   /** Group the object belongs to, or an empty string when ungrouped. */
   groupId: string;
 }
+
+/**
+ * Default proportions per kind, in inches.
+ *
+ * A panel defaults to three-quarter ply thickness because that is what almost
+ * every partition, shelf and cabinet side in a conversion is cut from.
+ */
+export const KIND_DEFAULT_SIZE: Record<ObjectKind, [number, number, number]> = {
+  box: [24, 30, 24],
+  cylinder: [14, 20, 14],
+  panel: [36, 24, 0.75],
+  extrusion: [36, 30, 20],
+};
 
 /** Name of any editable property. */
 export type ObjectPropertyKey = keyof ObjectProperties;
@@ -78,6 +100,11 @@ export interface ObjectData {
   layerId?: string;
   /** Group membership, empty when ungrouped. */
   groupId?: string;
+  /**
+   * Polygon profile for extrusions, as `[x, z]` pairs in inches. Absent for
+   * every other kind.
+   */
+  profile?: Array<[number, number]>;
 }
 
 /**
@@ -94,6 +121,3 @@ export interface TransformSnapshot {
 
 /** Smallest dimension an object may be scaled to, in inches. */
 export const MIN_DIMENSION = 0.25;
-
-/** Default size of a newly created box, in inches. */
-export const DEFAULT_BOX_SIZE: [number, number, number] = [24, 30, 24];

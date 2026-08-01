@@ -1,0 +1,132 @@
+import type { LibraryItem } from '../LibraryTypes';
+
+/**
+ * Components whose real shape is not a box.
+ *
+ * These entries exist because the geometry matters to the decision. A round
+ * water tank in a corner wastes space a rectangular one would use, and seeing
+ * that in the model is the whole point of drawing it. A propane bottle placed
+ * as a cube would look like it fits somewhere it does not.
+ *
+ * Panels are separated from boxes for a different reason: they are sheet goods,
+ * cut from ply, and the cut list in a later milestone keys off that distinction
+ * rather than guessing from proportions.
+ */
+export const SHAPE_ITEMS: readonly LibraryItem[] = [
+  {
+    id: 'water-tank-round-15',
+    name: 'Fresh tank, round 15 gal',
+    category: 'water',
+    description: 'Cylindrical polyethylene tank for a corner or under a bench.',
+    kind: 'cylinder',
+    dimensions: [18, 22, 18],
+    color: '#4a7fa5',
+    weight: 10,
+    price: 140,
+    placement: 'floor',
+    notes:
+      'Roughly 135 lb full. A round tank wastes the corners but fits where a rectangular one will not; check both before committing.',
+    keywords: ['water', 'tank', 'round', 'cylindrical', 'fresh'],
+  },
+  {
+    id: 'propane-bottle-20',
+    name: 'Propane bottle, 20 lb',
+    category: 'kitchen',
+    description: 'Standard exchangeable propane cylinder.',
+    kind: 'cylinder',
+    dimensions: [12.5, 18, 12.5],
+    color: '#a8a8a8',
+    weight: 37,
+    price: 60,
+    placement: 'floor',
+    notes:
+      'Must live in a sealed locker vented to the outside at floor level: propane is heavier than air and pools. Weight shown is full.',
+    keywords: ['propane', 'lpg', 'gas', 'bottle', 'cylinder'],
+  },
+  {
+    id: 'duct-4in',
+    name: 'Heater duct, 4"',
+    category: 'climate',
+    description: 'Flexible ducting run for a diesel heater outlet.',
+    kind: 'cylinder',
+    dimensions: [4, 36, 4],
+    color: '#7a6b5c',
+    weight: 2,
+    price: 25,
+    placement: 'free',
+    notes: 'Rotate to lay it along a run. Keep bends gentle: tight turns cost a surprising amount of airflow.',
+    keywords: ['duct', 'ducting', 'heater', 'hose', 'air'],
+  },
+  {
+    id: 'partition-panel',
+    name: 'Partition panel',
+    category: 'cabinetry',
+    description: '3/4" plywood divider or cabinet side.',
+    kind: 'panel',
+    dimensions: [24, 34, 0.75],
+    color: '#c9a227',
+    weight: 14,
+    price: 0,
+    placement: 'floor',
+    notes: 'Counted as sheet goods for the cut list. Rotate 90° about Y to run it fore and aft.',
+    keywords: ['panel', 'divider', 'partition', 'plywood', 'side'],
+  },
+  {
+    id: 'wall-panel',
+    name: 'Wall panel',
+    category: 'cabinetry',
+    description: 'Full-height wall or bulkhead panel, 1/2" ply.',
+    kind: 'panel',
+    dimensions: [48, 60, 0.5],
+    color: '#b8963f',
+    weight: 22,
+    price: 0,
+    placement: 'wall',
+    notes:
+      'A flat panel will not sit against a curved van wall without scribing. Use it for bulkheads and internal walls rather than the outer skin.',
+    keywords: ['wall', 'bulkhead', 'panel', 'divider'],
+  },
+  {
+    id: 'shelf-panel',
+    name: 'Shelf',
+    category: 'storage',
+    description: '3/4" ply shelf.',
+    kind: 'panel',
+    dimensions: [30, 0.75, 12],
+    color: '#c9a227',
+    weight: 7,
+    price: 0,
+    placement: 'surface',
+    notes: 'Placed flat. Anything over about 30" of span wants support in the middle once it is loaded.',
+    keywords: ['shelf', 'ply', 'board'],
+  },
+  {
+    id: 'counter-l-shape',
+    name: 'Countertop, L-shape',
+    category: 'cabinetry',
+    description: 'Wrapping worktop for a corner galley.',
+    kind: 'extrusion',
+    dimensions: [60, 1.5, 44],
+    color: '#8a6a3b',
+    weight: 40,
+    price: 0,
+    placement: 'surface',
+    notes: 'Edit the outline in the Profile panel to match your cabinet run. Dimensions follow the shape you enter.',
+    keywords: ['counter', 'worktop', 'l shape', 'corner', 'galley'],
+  },
+  {
+    id: 'bed-platform-notched',
+    name: 'Bed platform, notched',
+    category: 'sleeping',
+    description: 'Platform with corners cut away to clear the wheel wells.',
+    kind: 'extrusion',
+    dimensions: [48, 3, 75],
+    color: '#a98b52',
+    weight: 50,
+    price: 0,
+    placement: 'free',
+    notes:
+      'Start from the wheel-well notch preset and set the notch to your own measurements. Wheel wells on a ProMaster are about 35" long and 17" tall.',
+    keywords: ['bed', 'platform', 'notch', 'wheel well'],
+  },
+];

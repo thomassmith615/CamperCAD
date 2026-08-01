@@ -18,6 +18,7 @@ export class NumberField {
   readonly element: HTMLElement;
 
   private readonly input: HTMLInputElement;
+  private readonly caption: HTMLElement;
   private readonly kind: FieldKind;
   private readonly onCommit: (value: number) => void;
   private unit: DisplayUnit;
@@ -37,9 +38,9 @@ export class NumberField {
     this.element = document.createElement('div');
     this.element.className = 'row';
 
-    const caption = document.createElement('span');
-    caption.className = 'row__label';
-    caption.textContent = label;
+    this.caption = document.createElement('span');
+    this.caption.className = 'row__label';
+    this.caption.textContent = label;
 
     this.input = document.createElement('input');
     this.input.type = 'text';
@@ -58,7 +59,12 @@ export class NumberField {
       }
     });
 
-    this.element.append(caption, this.input);
+    this.element.append(this.caption, this.input);
+  }
+
+  /** Changes the field's caption, e.g. when the selected kind changes. */
+  setLabel(label: string): void {
+    this.caption.textContent = label;
   }
 
   /** Sets the value shown, without invoking the commit callback. */

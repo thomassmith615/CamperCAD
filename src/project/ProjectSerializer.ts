@@ -8,7 +8,7 @@ import { DEFAULT_LAYERS, DEFAULT_LAYER_ID, type GroupData, type LayerData } from
 const UNITS: readonly DisplayUnit[] = ['in', 'ft-in', 'mm', 'cm', 'm'];
 
 /** Object kinds this build can rebuild. */
-const KINDS: readonly ObjectKind[] = ['box'];
+const KINDS: readonly ObjectKind[] = ['box', 'cylinder', 'panel', 'extrusion'];
 
 /** Values used when an optional field is absent from an older file. */
 const DEFAULT_CAMERA: CameraState = {
@@ -217,6 +217,25 @@ export class ProjectSerializer {
       visible: bool(value.visible, true),
       layerId: str(value.layerId, DEFAULT_LAYER_ID),
       groupId: typeof value.groupId === 'string' ? value.groupId : '',
+      ...ProjectSerializer.readProfile(value.profile),
     };
+  }
+
+  /**
+   * Reads an extrusion profile.
+   *
+   * A malformed profile is dropped rather than rejected: the object still has
+   * valid dimensions, so it loads as a box of the right size and the user can
+   * reshape it. Refusing the whole project over one bad polygon would be a
+   * worse trade.
+   */
+  private static readProfile(value: unknown): { profile?: Array<[number, number]> } {
+    if (!Array.isArray(value)) return {};
+
+    const points = value
+      .filter((entry): entry is unknown[] => Array.isArray(entry) && entry.length === 2)
+      .map((entry) => [num(entry[0], 0), num(entry[1], 0)] as [number, number]);
+
+    return points.length >= 3 ? { profile: points } : {};
   }
 }

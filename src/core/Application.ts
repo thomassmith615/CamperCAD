@@ -11,17 +11,19 @@ import type { VehicleDefinition } from '@/vehicle/VehicleTypes';
 import { ObjectFactory } from '@/objects/ObjectFactory';
 import { ObjectStore } from '@/objects/ObjectStore';
 import type { SceneObject } from '@/objects/SceneObject';
-import type { ObjectProperties, ObjectPropertyKey } from '@/objects/ObjectTypes';
+import type { ObjectProperties, ObjectPropertyKey, ObjectKind } from '@/objects/ObjectTypes';
+import type { ProfilePoint } from '@/geometry/ProfileShapes';
 import { CommandStack } from '@/commands/CommandStack';
 import { AddObjectCommand } from '@/commands/AddObjectCommand';
 import { RemoveObjectCommand } from '@/commands/RemoveObjectCommand';
 import { SetPropertyCommand } from '@/commands/SetPropertyCommand';
+import { SetProfileCommand } from '@/commands/SetProfileCommand';
 import { SelectionManager } from '@/selection/SelectionManager';
 import { SelectionOutline } from '@/selection/SelectionOutline';
 import { TransformGizmo, type GizmoMode } from '@/selection/TransformGizmo';
 import { ToolManager } from '@/tools/ToolManager';
 import { SelectTool } from '@/tools/SelectTool';
-import { CreateBoxTool } from '@/tools/CreateBoxTool';
+import { CreateShapeTool } from '@/tools/CreateShapeTool';
 import { MeasureTool } from '@/tools/MeasureTool';
 import type { ToolId } from '@/tools/ToolTypes';
 import { SnapEngine } from '@/snapping/SnapEngine';
@@ -84,6 +86,7 @@ export class Application {
   private readonly labels: ScreenLabelLayer;
   private readonly measureTool: MeasureTool;
   private readonly placeTool: PlaceItemTool;
+  private readonly shapeTool: CreateShapeTool;
   private readonly clock = new THREE.Clock();
   private readonly raycaster = new THREE.Raycaster();
   private readonly floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -167,19 +170,18 @@ export class Application {
         this.controls,
       ),
     );
-    this.tools.register(
-      new CreateBoxTool(
-        this.renderer.domElement,
-        this.scene,
-        this.cameras,
-        this.grid,
-        this.factory,
-        this.objects,
-        this.history,
-        this.selection,
-        this.tools,
-      ),
+    this.shapeTool = new CreateShapeTool(
+      this.renderer.domElement,
+      this.scene,
+      this.cameras,
+      this.grid,
+      this.factory,
+      this.objects,
+      this.history,
+      this.selection,
+      this.tools,
     );
+    this.tools.register(this.shapeTool);
 
     this.placeTool = new PlaceItemTool(
       this.renderer.domElement,
@@ -309,6 +311,23 @@ export class Application {
   /** Activates a tool by identifier. */
   setTool(tool: ToolId): void {
     this.tools.activate(tool);
+  }
+
+  /** Arms the shape tool with a primitive kind and activates it. */
+  beginCreating(kind: ObjectKind): void {
+    this.shapeTool.beginCreating(kind);
+  }
+
+  /**
+   * Reshapes an extrusion's profile through the history.
+   *
+   * Rejected silently when the polygon is degenerate: the editor validates each
+   * field as it is typed, and a half-finished shape should leave the object
+   * alone rather than collapse it.
+   */
+  setObjectProfile(object: SceneObject, points: readonly ProfilePoint[]): void {
+    if (!object.hasProfile) return;
+    this.history.execute(new SetProfileCommand(this.objects, object, points));
   }
 
   /** Groups the current selection. */
@@ -457,6 +476,8 @@ export class Application {
     for (const dispose of this.disposers) dispose();
     this.disposers.length = 0;
     this.tools.dispose();
+    this.shapeTool.dispose();
+    this.placeTool.dispose();
     this.gizmo.dispose();
     this.outline.dispose();
     this.snapIndicator.dispose();
@@ -649,7 +670,16 @@ export class Application {
           this.setTool('select');
           break;
         case 'KeyB':
-          this.setTool('create-box');
+          this.beginCreating('box');
+          break;
+        case 'KeyC':
+          this.beginCreating('cylinder');
+          break;
+        case 'KeyP':
+          this.beginCreating('panel');
+          break;
+        case 'KeyX':
+          this.beginCreating('extrusion');
           break;
         case 'KeyM':
           this.setTool('measure');

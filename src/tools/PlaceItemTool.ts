@@ -9,6 +9,9 @@ import type { ObjectStore } from '@/objects/ObjectStore';
 import type { SelectionManager } from '@/selection/SelectionManager';
 import type { LibraryItem } from '@/library/LibraryTypes';
 import type { PlacementSolver } from '@/library/PlacementSolver';
+import { geometryRegistry } from '@/objects/SceneObject';
+import { KIND_INFO } from '@/geometry/GeometryRegistry';
+import { PROFILE_PRESETS } from '@/geometry/ProfileShapes';
 import type { ToolManager } from './ToolManager';
 import type { Tool, ToolId } from './ToolTypes';
 
@@ -51,7 +54,8 @@ export class PlaceItemTool implements Tool {
 
   private readonly raycaster = new THREE.Raycaster();
   private readonly floor = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  private readonly ghost: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>;
+  private readonly ghost: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+  private readonly ownedGhostGeometry = new Set<THREE.BufferGeometry>();
   private readonly cursorPoint = new THREE.Vector3();
 
   private item: LibraryItem | null = null;
@@ -80,7 +84,7 @@ export class PlaceItemTool implements Tool {
     this.tools = tools;
 
     this.ghost = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
+      new THREE.BufferGeometry(),
       new THREE.MeshStandardMaterial({
         color: GHOST_OK,
         transparent: true,
@@ -102,8 +106,28 @@ export class PlaceItemTool implements Tool {
   /** Arms the tool with an item and activates it. */
   beginPlacing(item: LibraryItem): void {
     this.item = item;
+
+    // The ghost must be the shape the item actually is: a round tank previewed
+    // as a box would be exactly the thing this preview exists to prevent.
+    const profile = KIND_INFO[item.kind].hasProfile ? PROFILE_PRESETS[0].build() : undefined;
+    const { geometry, owned } = geometryRegistry().create(item.kind, profile);
+
+    if (this.ownedGhostGeometry.has(this.ghost.geometry)) {
+      this.ownedGhostGeometry.delete(this.ghost.geometry);
+      this.ghost.geometry.dispose();
+    }
+    this.ghost.geometry = geometry;
+    if (owned) this.ownedGhostGeometry.add(geometry);
+
     this.ghost.scale.set(...item.dimensions);
     this.tools.activate('place-item');
+  }
+
+  /** Frees any ghost geometry this tool owns. */
+  dispose(): void {
+    for (const geometry of this.ownedGhostGeometry) geometry.dispose();
+    this.ownedGhostGeometry.clear();
+    this.ghost.material.dispose();
   }
 
   activate(): void {

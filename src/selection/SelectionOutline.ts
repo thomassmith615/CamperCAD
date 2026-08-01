@@ -5,19 +5,16 @@ import type { SceneObject } from '@/objects/SceneObject';
 const OUTLINE_COLOR = 0xe2a44a;
 
 /**
- * Edge geometry matching the shared unit box, including its bottom-face origin.
- * Every outline reuses it and is positioned by copying the object's matrix.
- */
-const UNIT_EDGES = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0));
-
-/**
  * Draws outlines around selected objects.
  *
- * Edges of the object's own box are used rather than an axis-aligned bounding
- * box helper. For a cabinet rotated to follow the van's sidewall those differ
- * substantially, and a loose box floating around a rotated object reads as a
- * bug. Copying the object's world matrix onto the outline makes it exact for
- * free.
+ * Edges of the object's **own geometry** are used rather than an axis-aligned
+ * bounding box helper. For a cabinet rotated to follow the van's sidewall those
+ * differ substantially, and a loose box floating around a rotated object reads
+ * as a bug. It matters more once shapes are not all boxes: a bounding-box
+ * outline around a cylinder or an L-shaped counter would be plainly wrong.
+ *
+ * Copying the object's world matrix onto the outline makes the fit exact for
+ * free, since both are built against the same unit-box contract.
  *
  * Outlines are drawn with depth testing off so a selected object stays visible
  * behind the van shell, which is the situation the user is usually in.
@@ -27,6 +24,7 @@ export class SelectionOutline {
 
   private readonly material: THREE.LineBasicMaterial;
   private readonly pool: THREE.LineSegments[] = [];
+  private readonly owned = new Set<THREE.BufferGeometry>();
   private tracked: readonly SceneObject[] = [];
 
   constructor() {
@@ -45,14 +43,15 @@ export class SelectionOutline {
    * Points the outlines at a new selection.
    *
    * Line objects are pooled rather than recreated: selection changes on every
-   * click, and allocating geometry per click produces avoidable garbage during
-   * the most common interaction in the application.
+   * click, and allocating a line per click produces avoidable garbage during
+   * the most common interaction in the application. The geometry inside them is
+   * re-fetched per object, since a selection can mix kinds.
    */
   setSelection(objects: readonly SceneObject[]): void {
     this.tracked = objects;
 
     while (this.pool.length < objects.length) {
-      const line = new THREE.LineSegments(UNIT_EDGES, this.material);
+      const line = new THREE.LineSegments(new THREE.BufferGeometry(), this.material);
       line.matrixAutoUpdate = false;
       line.frustumCulled = false;
       line.renderOrder = 999;
@@ -60,9 +59,20 @@ export class SelectionOutline {
       this.group.add(line);
     }
 
-    this.pool.forEach((line, index) => {
-      line.visible = index < objects.length;
+    objects.forEach((object, index) => {
+      const line = this.pool[index];
+      const { geometry, owned } = object.createEdges();
+
+      this.release(line.geometry);
+      line.geometry = geometry;
+      if (owned) this.owned.add(geometry);
+
+      line.visible = true;
     });
+
+    for (let i = objects.length; i < this.pool.length; i += 1) {
+      this.pool[i].visible = false;
+    }
 
     this.update();
   }
@@ -84,8 +94,17 @@ export class SelectionOutline {
     });
   }
 
-  /** Releases the shared material. Edge geometry is module-level and persists. */
+  /** Releases the shared material and any per-object edge geometry held. */
   dispose(): void {
+    for (const line of this.pool) this.release(line.geometry);
+    this.owned.clear();
     this.material.dispose();
+  }
+
+  /** Frees geometry this layer owns; shared geometry is left alone. */
+  private release(geometry: THREE.BufferGeometry): void {
+    if (!this.owned.has(geometry)) return;
+    this.owned.delete(geometry);
+    geometry.dispose();
   }
 }
