@@ -4,6 +4,7 @@ import type { ObjectProperties, ObjectPropertyKey } from '@/objects/ObjectTypes'
 import { formatLength } from '@/math/Units';
 import { KIND_INFO } from '@/geometry/GeometryRegistry';
 import { MATERIAL_LABELS, type SheetMaterial } from '@/analysis/BomTypes';
+import { TANK_ROLE_LABELS, type TankRole } from '@/analysis/PlumbingTypes';
 import { ProfileEditor } from './ProfileEditor';
 import { Panel } from './Panel';
 import { ColorField, NotesField, NumberField, TextField } from './Fields';
@@ -44,6 +45,10 @@ export class ObjectInspector {
   private readonly electricalPanel: Panel;
   private readonly acToggle: HTMLInputElement;
   private readonly dailyEnergy: HTMLElement;
+  private readonly plumbingPanel: Panel;
+  private readonly tankRoleSelect: HTMLSelectElement;
+  private readonly greyToggle: HTMLInputElement;
+  private readonly dailyWater: HTMLElement;
   private readonly tankPanel: Panel;
   private readonly fillSlider: HTMLInputElement;
   private readonly fluidReadout: HTMLElement;
@@ -142,6 +147,26 @@ export class ObjectInspector {
       'Hours per day is duty cycle. A compressor fridge runs about a third of the time even though it is on continuously.',
     );
 
+    this.plumbingPanel = new Panel('Plumbing');
+    this.tankRoleSelect = document.createElement('select');
+    this.tankRoleSelect.className = 'field-select field-select--full';
+    for (const [value, label] of Object.entries(TANK_ROLE_LABELS) as Array<[TankRole, string]>) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      this.tankRoleSelect.append(option);
+    }
+    this.tankRoleSelect.addEventListener('change', () => this.commit('tankRole', this.tankRoleSelect.value));
+    this.plumbingPanel.append(ObjectInspector.row('Tank role', this.tankRoleSelect));
+
+    this.addNumberField(this.plumbingPanel, 'Flow (GPM)', 'fixtureFlowGpm', 'number');
+    this.addNumberField(this.plumbingPanel, 'Min/day', 'fixtureMinutesPerDay', 'number');
+    this.addNumberField(this.plumbingPanel, 'Pump (GPM)', 'pumpGpm', 'number');
+    this.greyToggle = this.plumbingPanel.addToggle('Drains to grey tank', true, (checked) =>
+      this.commit('drainsToGrey', checked),
+    );
+    this.dailyWater = this.plumbingPanel.addReadout('Uses per day', '', true);
+
     this.panels.push(identity, dimensions, placement, details);
 
     app.bus.on('object:changed', ({ object }) => {
@@ -171,6 +196,7 @@ export class ObjectInspector {
     // Shown for anything that draws, stores or makes power, and for nothing
     // else: a cabinet does not need six blank electrical fields.
     if (this.target && ObjectInspector.isElectrical(this.target)) panels.push(this.electricalPanel);
+    if (this.target && ObjectInspector.isPlumbing(this.target)) panels.push(this.plumbingPanel);
     return panels;
   }
 
@@ -238,6 +264,12 @@ export class ObjectInspector {
     const hours = object.get('loadHoursPerDay');
     this.dailyEnergy.textContent = watts > 0 ? `${Math.round(watts * hours)} Wh` : '—';
 
+    this.tankRoleSelect.value = object.get('tankRole');
+    this.greyToggle.checked = object.get('drainsToGrey');
+    const flow = object.get('fixtureFlowGpm');
+    const minutes = object.get('fixtureMinutesPerDay');
+    this.dailyWater.textContent = flow > 0 ? `${(flow * minutes).toFixed(1)} gal` : '—';
+
     const capacity = object.get('capacityGallons');
     if (capacity > 0) {
       const fill = object.get('fillGallons');
@@ -258,6 +290,16 @@ export class ObjectInspector {
       object.get('batteryAmpHours') > 0 ||
       object.get('solarWatts') > 0 ||
       object.get('inverterWatts') > 0
+    );
+  }
+
+  /** True when an object has any role in the water system. */
+  private static isPlumbing(object: SceneObject): boolean {
+    return (
+      object.get('tankRole') !== 'none' ||
+      object.get('fixtureFlowGpm') > 0 ||
+      object.get('pumpGpm') > 0 ||
+      object.get('capacityGallons') > 0
     );
   }
 

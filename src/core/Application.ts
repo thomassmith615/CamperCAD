@@ -44,6 +44,7 @@ import { InputSettings, type InputMode } from '@/input/InputSettings';
 import { WeightService } from '@/analysis/WeightService';
 import { BomService } from '@/analysis/BomService';
 import { ElectricalService } from '@/analysis/ElectricalService';
+import { PlumbingService } from '@/analysis/PlumbingService';
 import type { SystemVoltage } from '@/analysis/ElectricalTypes';
 import { BalanceOverlay } from '@/scene/BalanceOverlay';
 import type { AppEvents } from './AppEvents';
@@ -85,6 +86,7 @@ export class Application {
   readonly weights: WeightService;
   readonly bom: BomService;
   readonly electrical: ElectricalService;
+  readonly plumbing: PlumbingService;
   private readonly balance = new BalanceOverlay();
   readonly input = new InputSettings();
   private readonly arrays: ArrayBuilder;
@@ -134,6 +136,7 @@ export class Application {
     this.weights = new WeightService(this.objects);
     this.bom = new BomService(this.objects);
     this.electrical = new ElectricalService(this.objects);
+    this.plumbing = new PlumbingService(this.objects);
     this.scene.add('helpers', this.balance.group);
     this.arrays = new ArrayBuilder(this.factory);
 
@@ -736,6 +739,9 @@ export class Application {
           break;
         case 'KeyK':
           this.bus.emit('electrical:requested', undefined);
+          break;
+        case 'KeyU':
+          this.bus.emit('plumbing:requested', undefined);
           break;
         case 'KeyO':
           this.setProjection(this.cameras.projection === 'perspective' ? 'orthographic' : 'perspective');

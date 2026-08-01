@@ -104,6 +104,15 @@ export class ObjectFactory {
       if (e.solarWatts) object.set('solarWatts', e.solarWatts);
       if (e.inverterWatts) object.set('inverterWatts', e.inverterWatts);
     }
+
+    if (item.plumbing) {
+      const w = item.plumbing;
+      if (w.tankRole) object.set('tankRole', w.tankRole);
+      if (w.flowGpm) object.set('fixtureFlowGpm', w.flowGpm);
+      if (w.minutesPerDay) object.set('fixtureMinutesPerDay', w.minutesPerDay);
+      if (w.drainsToGrey === false) object.set('drainsToGrey', false);
+      if (w.pumpGpm) object.set('pumpGpm', w.pumpGpm);
+    }
     object.mesh.updateMatrixWorld(true);
     return object;
   }

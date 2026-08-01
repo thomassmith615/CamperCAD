@@ -55,6 +55,11 @@ export class SceneObject {
   private batteryAmpHours = 0;
   private solarWatts = 0;
   private inverterWatts = 0;
+  private tankRole = 'none';
+  private fixtureFlowGpm = 0;
+  private fixtureMinutesPerDay = 0;
+  private drainsToGrey = true;
+  private pumpGpm = 0;
   private notes = '';
   private material = 'birch-ply';
   private locked = false;
@@ -226,6 +231,11 @@ export class SceneObject {
       batteryAmpHours: this.batteryAmpHours,
       solarWatts: this.solarWatts,
       inverterWatts: this.inverterWatts,
+      tankRole: this.tankRole,
+      fixtureFlowGpm: this.fixtureFlowGpm,
+      fixtureMinutesPerDay: this.fixtureMinutesPerDay,
+      drainsToGrey: this.drainsToGrey,
+      pumpGpm: this.pumpGpm,
       notes: this.notes,
       material: this.material,
       locked: this.locked,
@@ -257,6 +267,11 @@ export class SceneObject {
     this.batteryAmpHours = data.batteryAmpHours ?? 0;
     this.solarWatts = data.solarWatts ?? 0;
     this.inverterWatts = data.inverterWatts ?? 0;
+    this.tankRole = data.tankRole ?? 'none';
+    this.fixtureFlowGpm = data.fixtureFlowGpm ?? 0;
+    this.fixtureMinutesPerDay = data.fixtureMinutesPerDay ?? 0;
+    this.drainsToGrey = data.drainsToGrey ?? true;
+    this.pumpGpm = data.pumpGpm ?? 0;
     this.notes = data.notes;
     this.material = data.material ?? 'birch-ply';
     this.locked = data.locked;
@@ -339,6 +354,16 @@ export class SceneObject {
         return this.solarWatts;
       case 'inverterWatts':
         return this.inverterWatts;
+      case 'tankRole':
+        return this.tankRole;
+      case 'fixtureFlowGpm':
+        return this.fixtureFlowGpm;
+      case 'fixtureMinutesPerDay':
+        return this.fixtureMinutesPerDay;
+      case 'drainsToGrey':
+        return this.drainsToGrey;
+      case 'pumpGpm':
+        return this.pumpGpm;
       case 'notes':
         return this.notes;
       case 'material':
@@ -424,6 +449,21 @@ export class SceneObject {
         break;
       case 'inverterWatts':
         this.inverterWatts = Math.max(0, Number(value));
+        break;
+      case 'tankRole':
+        this.tankRole = String(value);
+        break;
+      case 'fixtureFlowGpm':
+        this.fixtureFlowGpm = Math.max(0, Number(value));
+        break;
+      case 'fixtureMinutesPerDay':
+        this.fixtureMinutesPerDay = Math.max(0, Number(value));
+        break;
+      case 'drainsToGrey':
+        this.drainsToGrey = Boolean(value);
+        break;
+      case 'pumpGpm':
+        this.pumpGpm = Math.max(0, Number(value));
         break;
       case 'notes':
         this.notes = String(value);

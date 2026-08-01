@@ -114,6 +114,24 @@ export interface LibraryItem {
     inverterWatts?: number;
   };
   /**
+   * Plumbing characteristics, for tanks, fixtures and pumps.
+   *
+   * Minutes per day is what makes a shower expensive: at 1.8 GPM, eight minutes
+   * is fourteen gallons, which is most of a small fresh tank in one wash.
+   */
+  plumbing?: {
+    /** Tank role: fresh, grey or black. */
+    tankRole?: string;
+    /** Flow while running, in gallons per minute. */
+    flowGpm?: number;
+    /** Minutes of running per day. */
+    minutesPerDay?: number;
+    /** False when waste leaves the van directly rather than via a grey tank. */
+    drainsToGrey?: boolean;
+    /** Delivery rate in gallons per minute, for pumps. */
+    pumpGpm?: number;
+  };
+  /**
    * Whether a new tank arrives full. Defaults to true.
    *
    * Fresh tanks start full because a layout that only balances empty is not a

@@ -23,6 +23,7 @@ export const SHAPE_ITEMS: readonly LibraryItem[] = [
     color: '#4a7fa5',
     weight: 10,
     price: 140,
+    plumbing: { tankRole: 'fresh' },
     capacityGallons: 15,
     placement: 'floor',
     notes:

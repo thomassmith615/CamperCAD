@@ -9,6 +9,7 @@ import type { OutlinerPanel } from './OutlinerPanel';
 import { ArrayDialog } from './ArrayDialog';
 import { BomDialog } from './BomDialog';
 import { ElectricalDialog } from './ElectricalDialog';
+import { PlumbingDialog } from './PlumbingDialog';
 import { INPUT_MODE_LABELS, type InputMode } from '@/input/InputSettings';
 import { icon } from './icons';
 
@@ -56,6 +57,7 @@ export class Toolbar {
   private readonly arrayDialog: ArrayDialog;
   private readonly bomDialog: BomDialog;
   private readonly electricalDialog: ElectricalDialog;
+  private readonly plumbingDialog: PlumbingDialog;
 
   constructor(host: HTMLElement, app: Application, libraryPanel: LibraryPanel, outlinerPanel: OutlinerPanel) {
     this.host = host;
@@ -66,6 +68,7 @@ export class Toolbar {
     this.arrayDialog = new ArrayDialog(app);
     this.bomDialog = new BomDialog(app);
     this.electricalDialog = new ElectricalDialog(app);
+    this.plumbingDialog = new PlumbingDialog(app);
 
     this.host.replaceChildren();
     this.host.append(
@@ -117,6 +120,7 @@ export class Toolbar {
     app.bus.on('balance:toggled', ({ visible }) => this.balanceButton.classList.toggle('is-active', visible));
     app.bus.on('bom:requested', () => this.bomDialog.open());
     app.bus.on('electrical:requested', () => this.electricalDialog.open());
+    app.bus.on('plumbing:requested', () => this.plumbingDialog.open());
 
     // The toolbar is where an overload becomes visible without the sidebar
     // open, so the balance button carries the alarm.
@@ -149,7 +153,7 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.10.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.11.0</span>';
     return brand;
   }
 
@@ -323,6 +327,7 @@ export class Toolbar {
       this.iconButton('upload', 'Import from a file', () => void this.app.projects.importFromFile()),
       this.iconButton('clipboard', 'Bill of materials and cut list — J', () => this.bomDialog.open()),
       this.iconButton('bolt', 'Electrical system — K', () => this.electricalDialog.open()),
+      this.iconButton('droplet', 'Water system — U', () => this.plumbingDialog.open()),
     );
     return group;
   }

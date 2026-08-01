@@ -114,6 +114,8 @@ export interface AppEvents {
   'bom:requested': undefined;
   /** The user asked for the electrical dialog from the keyboard. */
   'electrical:requested': undefined;
+  /** The user asked for the plumbing dialog from the keyboard. */
+  'plumbing:requested': undefined;
 
   /** The library drawer opened or closed. */
   'library:toggled': { open: boolean };

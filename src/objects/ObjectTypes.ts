@@ -67,6 +67,17 @@ export interface ObjectProperties {
   solarWatts: number;
   /** Continuous rating in watts, for inverters. */
   inverterWatts: number;
+
+  /** Which role a tank plays: fresh, grey, black, or none. */
+  tankRole: string;
+  /** Flow while running, in gallons per minute, for fixtures. */
+  fixtureFlowGpm: number;
+  /** Minutes of running per day, for fixtures. */
+  fixtureMinutesPerDay: number;
+  /** True when this fixture's waste reaches the grey tank. */
+  drainsToGrey: boolean;
+  /** Delivery rate in gallons per minute, for pumps. */
+  pumpGpm: number;
   notes: string;
   /**
    * What the object is made from, as a {@link SheetMaterial} key.
@@ -135,6 +146,12 @@ export interface ObjectData {
   batteryAmpHours?: number;
   solarWatts?: number;
   inverterWatts?: number;
+  /** Plumbing properties. Absent in projects saved before they existed. */
+  tankRole?: string;
+  fixtureFlowGpm?: number;
+  fixtureMinutesPerDay?: number;
+  drainsToGrey?: boolean;
+  pumpGpm?: number;
   notes: string;
   /** Material key. Absent in projects saved before materials existed. */
   material?: string;

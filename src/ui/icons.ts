@@ -17,6 +17,7 @@ const PATHS: Record<string, string> = {
   layers: '<path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 14 9 5 9-5"/>',
   cursor: '<path d="m5 3 6.5 16 2.2-6.3L20 10.5 5 3Z"/>',
   box: '<path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z"/><path d="m3 7.5 9 4.5 9-4.5M12 12v9"/>',
+  droplet: '<path d="M12 3s6 6.4 6 10.4A6 6 0 0 1 6 13.4C6 9.4 12 3 12 3Z"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>',
   clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 10h6M9 14h6M9 18h3"/>',
   balance: '<path d="M12 3v18M7 21h10"/><path d="M3 8h18"/><path d="m6 8-3 6h6L6 8ZM18 8l-3 6h6l-3-6Z"/>',
