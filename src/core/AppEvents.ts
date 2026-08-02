@@ -10,6 +10,7 @@ import type { AppliedSnap } from '@/snapping/SnapTypes';
 import type { GroupData, LayerData } from '@/objects/StructureTypes';
 import type { InputMode } from '@/input/InputSettings';
 import type { WeightReport } from '@/analysis/WeightTypes';
+import type { RenderPresetId } from '@/render/RenderPresets';
 
 /**
  * The application's event vocabulary.
@@ -116,6 +117,10 @@ export interface AppEvents {
   'electrical:requested': undefined;
   /** The user asked for the plumbing dialog from the keyboard. */
   'plumbing:requested': undefined;
+  /** The lighting preset changed. */
+  'render:preset': { preset: RenderPresetId };
+  /** Walkthrough mode was entered or left. */
+  'walkthrough:changed': { active: boolean };
 
   /** The library drawer opened or closed. */
   'library:toggled': { open: boolean };

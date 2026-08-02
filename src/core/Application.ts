@@ -45,6 +45,11 @@ import { WeightService } from '@/analysis/WeightService';
 import { BomService } from '@/analysis/BomService';
 import { ElectricalService } from '@/analysis/ElectricalService';
 import { PlumbingService } from '@/analysis/PlumbingService';
+import { WalkthroughController } from '@/render/WalkthroughController';
+import { findPreset, type RenderPresetId } from '@/render/RenderPresets';
+import { EnvironmentRig } from '@/render/EnvironmentRig';
+import { materialLibrary } from '@/objects/SceneObject';
+import { FileTransfer } from '@/ui/FileTransfer';
 import type { SystemVoltage } from '@/analysis/ElectricalTypes';
 import { BalanceOverlay } from '@/scene/BalanceOverlay';
 import type { AppEvents } from './AppEvents';
@@ -87,7 +92,10 @@ export class Application {
   readonly bom: BomService;
   readonly electrical: ElectricalService;
   readonly plumbing: PlumbingService;
+  readonly walkthrough: WalkthroughController;
   private readonly balance = new BalanceOverlay();
+  private readonly environment = new EnvironmentRig();
+  private gridBeforeOutdoor: boolean | null = null;
   readonly input = new InputSettings();
   private readonly arrays: ArrayBuilder;
 
@@ -137,7 +145,9 @@ export class Application {
     this.bom = new BomService(this.objects);
     this.electrical = new ElectricalService(this.objects);
     this.plumbing = new PlumbingService(this.objects);
+    this.walkthrough = new WalkthroughController(this.cameras, this.controls, this.renderer.domElement);
     this.scene.add('helpers', this.balance.group);
+    this.scene.add('helpers', this.environment.group);
     this.arrays = new ArrayBuilder(this.factory);
 
     this.selection.setGroupExpander((objects) => this.structure.expandToGroups(objects));
@@ -281,6 +291,7 @@ export class Application {
     this.measurements.setVehicle(model);
     this.placement.setVehicle(model);
     this.weights.setVehicle(model);
+    this.walkthrough.setVehicle(model);
     this.balance.setAxles(definition.weights);
 
     this.bus.emit('vehicle:loaded', { vehicle: model });
@@ -414,6 +425,73 @@ export class Application {
     this.selection.select(copies, 'replace');
   }
 
+  /** The lighting rig, exposed so the presentation panel can read its preset. */
+  get lighting(): SceneManager['lighting'] {
+    return this.scene.lighting;
+  }
+
+  /**
+   * Applies a lighting preset.
+   *
+   * Purely a rendering change: nothing here can alter a measurement, a weight
+   * or a bill of materials.
+   */
+  setRenderPreset(id: RenderPresetId): void {
+    const preset = findPreset(id);
+
+    this.scene.lighting.applyPreset(preset);
+    this.scene.applyEnvironment(preset.background, preset.fog);
+    this.renderer.setExposure(preset.exposure);
+    this.renderer.renderer.shadowMap.enabled = preset.shadows;
+
+    this.environment.setVisible(preset.outdoor);
+    if (preset.outdoor) {
+      this.environment.setColors(preset.skyTop, preset.skyHorizon, preset.groundColor);
+    }
+
+    // The grid is hidden outdoors and restored on the way back, so switching to
+    // a scene and out again leaves the workspace exactly as it was found.
+    if (preset.outdoor) {
+      if (this.gridBeforeOutdoor === null) this.gridBeforeOutdoor = this.grid.visible;
+      this.setGridVisible(false);
+    } else if (this.gridBeforeOutdoor !== null) {
+      this.setGridVisible(this.gridBeforeOutdoor);
+      this.gridBeforeOutdoor = null;
+    }
+
+    this.bus.emit('render:preset', { preset: preset.id });
+  }
+
+  /** Enters or leaves the first-person walkthrough. */
+  toggleWalkthrough(): void {
+    if (this.walkthrough.isActive) this.walkthrough.exit();
+    else this.walkthrough.enter();
+    this.bus.emit('walkthrough:changed', { active: this.walkthrough.isActive });
+  }
+
+  /**
+   * Saves the current view as a PNG.
+   *
+   * Helpers are hidden for the capture and restored immediately: a screenshot
+   * meant to show someone the layout should not have a construction grid and a
+   * selection outline over it.
+   */
+  captureScreenshot(): void {
+    // Hidden individually rather than by hiding the whole helper layer: sky and
+    // ground live there too, and a screenshot of an outdoor scene without them
+    // would be a grey void.
+    const hidden = this.scene.helperGroup.children.filter(
+      (child) => child !== this.environment.group && child.visible,
+    );
+    for (const child of hidden) child.visible = false;
+
+    const dataUrl = this.renderer.capture(this.scene.scene, this.cameras.camera);
+    for (const child of hidden) child.visible = true;
+
+    const name = this.projects.project.name.replace(/[^\w.-]+/g, '-') || 'campercad';
+    FileTransfer.downloadDataUrl(`${name}.png`, dataUrl);
+  }
+
   /** Switches the nominal system voltage used for every electrical figure. */
   setSystemVoltage(voltage: SystemVoltage): void {
     this.electrical.setSystemVoltage(voltage);
@@ -531,6 +609,9 @@ export class Application {
     this.outline.dispose();
     this.snapIndicator.dispose();
     this.balance.dispose();
+    this.walkthrough.dispose();
+    this.environment.dispose();
+    materialLibrary().dispose();
     this.dimensions.dispose();
     this.labels.dispose();
     this.controls.dispose();
@@ -549,6 +630,15 @@ export class Application {
    */
   private update(): void {
     const delta = Math.min(this.clock.getDelta(), 0.1);
+
+    // Walkthrough owns the camera outright while it is running, so the tween
+    // and the orbit controls are both skipped rather than fighting it.
+    if (this.walkthrough.update(delta)) {
+      this.gizmo.update(this.cameras.camera);
+      this.outline.update();
+      this.renderer.render(this.scene.scene, this.cameras.camera);
+      return;
+    }
 
     const animating = this.cameras.update(delta);
     if (this.cameraWasAnimating && !animating) {
@@ -742,6 +832,9 @@ export class Application {
           break;
         case 'KeyU':
           this.bus.emit('plumbing:requested', undefined);
+          break;
+        case 'KeyV':
+          this.toggleWalkthrough();
           break;
         case 'KeyO':
           this.setProjection(this.cameras.projection === 'perspective' ? 'orthographic' : 'perspective');

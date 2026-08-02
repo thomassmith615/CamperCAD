@@ -58,6 +58,7 @@ export class Toolbar {
   private readonly bomDialog: BomDialog;
   private readonly electricalDialog: ElectricalDialog;
   private readonly plumbingDialog: PlumbingDialog;
+  private walkButton!: HTMLButtonElement;
 
   constructor(host: HTMLElement, app: Application, libraryPanel: LibraryPanel, outlinerPanel: OutlinerPanel) {
     this.host = host;
@@ -121,6 +122,7 @@ export class Toolbar {
     app.bus.on('bom:requested', () => this.bomDialog.open());
     app.bus.on('electrical:requested', () => this.electricalDialog.open());
     app.bus.on('plumbing:requested', () => this.plumbingDialog.open());
+    app.bus.on('walkthrough:changed', ({ active }) => this.walkButton.classList.toggle('is-active', active));
 
     // The toolbar is where an overload becomes visible without the sidebar
     // open, so the balance button carries the alarm.
@@ -153,7 +155,7 @@ export class Toolbar {
     const brand = document.createElement('div');
     brand.className = 'brand';
     brand.innerHTML =
-      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">0.11.0</span>';
+      '<span class="brand__name">Camper<em>CAD</em></span><span class="brand__version">1.0.0</span>';
     return brand;
   }
 
@@ -328,6 +330,7 @@ export class Toolbar {
       this.iconButton('clipboard', 'Bill of materials and cut list — J', () => this.bomDialog.open()),
       this.iconButton('bolt', 'Electrical system — K', () => this.electricalDialog.open()),
       this.iconButton('droplet', 'Water system — U', () => this.plumbingDialog.open()),
+      (this.walkButton = this.iconButton('walk', 'Walk through the van — V', () => this.app.toggleWalkthrough())),
     );
     return group;
   }

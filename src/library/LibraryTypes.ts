@@ -93,6 +93,14 @@ export interface LibraryItem {
   /** Material key for panels, feeding the cut list. Defaults to birch ply. */
   material?: string;
   /**
+   * Render finish key.
+   *
+   * Set on almost every entry, because an item that arrives looking like the
+   * thing it represents is the whole reason to place it from a library rather
+   * than drawing a box. Defaults to flat colour when omitted.
+   */
+  finish?: string;
+  /**
    * Electrical characteristics, for anything that draws, stores or makes power.
    *
    * Duty cycle matters more than rated wattage for the energy budget: a fridge

@@ -227,6 +227,7 @@ export class ProjectSerializer {
       pumpGpm: Math.max(0, num(value.pumpGpm, 0)),
       notes: typeof value.notes === 'string' ? value.notes : '',
       material: str(value.material, 'birch-ply'),
+      finish: str(value.finish, 'flat'),
       locked: bool(value.locked, false),
       visible: bool(value.visible, true),
       layerId: str(value.layerId, DEFAULT_LAYER_ID),

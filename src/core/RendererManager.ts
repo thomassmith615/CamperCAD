@@ -73,6 +73,29 @@ export class RendererManager {
     this.renderer.render(scene, camera);
   }
 
+  /** Sets tone mapping exposure, used by the render presets. */
+  setExposure(exposure: number): void {
+    this.renderer.toneMappingExposure = exposure;
+  }
+
+  /**
+   * Captures the current frame as a PNG data URL.
+   *
+   * The renderer runs without `preserveDrawingBuffer`, so the back buffer is
+   * cleared as soon as the browser composites. The caller must therefore render
+   * immediately before calling this, in the same tick — which is what
+   * `Application.captureScreenshot` does. Enabling buffer preservation instead
+   * would cost a full-frame copy on every frame of a viewport that is usually
+   * not being screenshotted.
+   *
+   * @param scene Scene to draw.
+   * @param camera Camera to draw from.
+   */
+  capture(scene: THREE.Scene, camera: THREE.Camera): string {
+    this.renderer.render(scene, camera);
+    return this.renderer.domElement.toDataURL('image/png');
+  }
+
   /** Draw call and triangle counts for the most recent frame. */
   stats(): { drawCalls: number; triangles: number } {
     const { render } = this.renderer.info;

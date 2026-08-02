@@ -43,6 +43,11 @@ export class ObjectFactory {
     const object = new SceneObject(ObjectFactory.createId(), kind, `${KIND_LABELS[kind]} ${index}`, DEFAULT_COLOR);
     object.mesh.scale.set(...KIND_DEFAULT_SIZE[kind]);
 
+    // A panel is sheet goods by definition, so it arrives looking like plywood.
+    // The other primitives stay flat: a box is a placeholder for something the
+    // user has not decided on yet, and pretending otherwise is noise.
+    if (kind === 'panel') object.set('finish', 'birch-ply');
+
     // An extrusion with no profile has nothing to extrude, so it starts from
     // the first preset rather than as an invisible object.
     if (object.hasProfile) {
@@ -94,6 +99,7 @@ export class ObjectFactory {
 
     object.set('notes', item.notes);
     if (item.material) object.set('material', item.material);
+    if (item.finish) object.set('finish', item.finish);
 
     if (item.electrical) {
       const e = item.electrical;

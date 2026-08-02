@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { findPreset, type RenderPreset } from '@/render/RenderPresets';
 
 /**
  * Lighting for the design viewport.
@@ -9,8 +10,10 @@ import * as THREE from 'three';
  * quarter, a cool rim from the opposite side to separate cabinets from walls,
  * and a soft overhead fill standing in for a roof fan and ceiling lights.
  *
+ * All four are driven by a {@link RenderPreset}, so switching from workshop
+ * light to night interior is one call rather than four coordinated ones.
  * Intensities assume `ACESFilmicToneMapping`; changing tone mapping means
- * retuning them together rather than individually.
+ * retuning a whole preset rather than individual lights.
  */
 export class LightingRig {
   readonly group = new THREE.Group();
@@ -19,6 +22,9 @@ export class LightingRig {
   private readonly rim: THREE.DirectionalLight;
   private readonly fill: THREE.DirectionalLight;
   private readonly hemisphere: THREE.HemisphereLight;
+
+  private preset: RenderPreset = findPreset('workshop');
+  private lastBounds: THREE.Box3 | null = null;
 
   constructor() {
     this.group.name = 'Lighting';
@@ -42,6 +48,40 @@ export class LightingRig {
     this.fill = new THREE.DirectionalLight(0xffffff, 0.45);
     this.fill.position.set(0, 300, 40);
     this.group.add(this.fill);
+
+    this.applyPreset(this.preset);
+  }
+
+  /** The preset currently in force. */
+  get activePreset(): RenderPreset {
+    return this.preset;
+  }
+
+  /**
+   * Applies a lighting preset.
+   *
+   * Positions are left to {@link fitToBounds}, which knows the scene's size;
+   * this sets only colour, intensity, direction and shadow casting.
+   */
+  applyPreset(preset: RenderPreset): void {
+    this.preset = preset;
+
+    this.hemisphere.color.setHex(preset.hemisphereSky);
+    this.hemisphere.groundColor.setHex(preset.hemisphereGround);
+    this.hemisphere.intensity = preset.hemisphereIntensity;
+
+    this.key.color.setHex(preset.keyColor);
+    this.key.intensity = preset.keyIntensity;
+    this.key.castShadow = preset.shadows;
+
+    this.rim.color.setHex(preset.rimColor);
+    this.rim.intensity = preset.rimIntensity;
+
+    this.fill.color.setHex(preset.fillColor);
+    this.fill.intensity = preset.fillIntensity;
+
+    // Direction changed, so the shadow camera has to be re-aimed.
+    if (this.lastBounds) this.fitToBounds(this.lastBounds);
   }
 
   /**
@@ -54,13 +94,15 @@ export class LightingRig {
    * @param bounds World-space bounds of everything that should cast shadows.
    */
   fitToBounds(bounds: THREE.Box3): void {
+    this.lastBounds = bounds.clone();
+
     const sphere = bounds.getBoundingSphere(new THREE.Sphere());
     const radius = Math.max(sphere.radius, 1);
 
     this.key.target.position.copy(sphere.center);
     this.key.target.updateMatrixWorld();
 
-    const direction = new THREE.Vector3(-0.5, 0.85, -0.7).normalize();
+    const direction = new THREE.Vector3(...this.preset.keyDirection).normalize();
     this.key.position.copy(sphere.center).addScaledVector(direction, radius * 2.6);
 
     const shadowCamera = this.key.shadow.camera;

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GeometryRegistry, KIND_INFO } from '@/geometry/GeometryRegistry';
+import { MaterialLibrary } from '@/render/MaterialLibrary';
 import { isProfileUsable, profileBounds, type ProfilePoint } from '@/geometry/ProfileShapes';
 import {
   MIN_DIMENSION,
@@ -20,9 +21,23 @@ import {
  */
 const GEOMETRY = new GeometryRegistry();
 
+/**
+ * Shared material library.
+ *
+ * Module-level for the same reason as the geometry registry: material identity
+ * has to be global so objects of the same finish and colour share one instance,
+ * and therefore one draw call.
+ */
+const MATERIALS = new MaterialLibrary();
+
 /** Exposes the registry so the UI can build matching ghosts and outlines. */
 export function geometryRegistry(): GeometryRegistry {
   return GEOMETRY;
+}
+
+/** Exposes the material library so the application can dispose it on teardown. */
+export function materialLibrary(): MaterialLibrary {
+  return MATERIALS;
 }
 
 /**
@@ -62,6 +77,8 @@ export class SceneObject {
   private pumpGpm = 0;
   private notes = '';
   private material = 'birch-ply';
+  private finish = 'flat';
+  private baseColor: string;
   private locked = false;
   private layerId = '';
   private groupId = '';
@@ -78,13 +95,9 @@ export class SceneObject {
     this.id = id;
     this.kind = kind;
     this.label = name;
+    this.baseColor = color;
 
-    const material = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(color),
-      roughness: 0.62,
-      metalness: 0.04,
-    });
-
+    const material = MATERIALS.get('flat', color);
     const { geometry, owned } = GEOMETRY.create(kind);
     this.ownsGeometry = owned;
 
@@ -220,7 +233,7 @@ export class SceneObject {
       dimensions: [scale.x, scale.y, scale.z],
       position: [position.x, position.y, position.z],
       rotation: [rotation.x, rotation.y, rotation.z],
-      color: `#${this.mesh.material.color.getHexString()}`,
+      color: this.baseColor,
       weight: this.weight,
       price: this.price,
       capacityGallons: this.capacityGallons,
@@ -238,6 +251,7 @@ export class SceneObject {
       pumpGpm: this.pumpGpm,
       notes: this.notes,
       material: this.material,
+      finish: this.finish,
       locked: this.locked,
       visible: this.mesh.visible,
       layerId: this.layerId,
@@ -255,7 +269,7 @@ export class SceneObject {
     this.mesh.position.fromArray(data.position);
     this.mesh.rotation.set(data.rotation[0], data.rotation[1], data.rotation[2]);
     this.mesh.scale.fromArray(data.dimensions);
-    this.mesh.material.color.set(data.color);
+    this.baseColor = data.color;
     this.mesh.visible = data.visible;
     this.weight = data.weight;
     this.price = data.price;
@@ -274,6 +288,8 @@ export class SceneObject {
     this.pumpGpm = data.pumpGpm ?? 0;
     this.notes = data.notes;
     this.material = data.material ?? 'birch-ply';
+    this.finish = data.finish ?? 'flat';
+    this.refreshMaterial();
     this.locked = data.locked;
     this.layerId = data.layerId ?? '';
     this.groupId = data.groupId ?? '';
@@ -292,12 +308,24 @@ export class SceneObject {
   /**
    * Frees this object's resources.
    *
-   * Geometry is disposed only when this object owns it. Shared kind geometry
-   * outlives every object using it and must never be freed here.
+   * Geometry is disposed only when this object owns it, and materials never
+   * are: both shared kind geometry and shared finishes outlive every object
+   * using them, and the library disposes them at teardown.
    */
   dispose(): void {
-    this.mesh.material.dispose();
     if (this.ownsGeometry) this.mesh.geometry.dispose();
+  }
+
+  /**
+   * Points the mesh at the shared material for its current finish and colour.
+   *
+   * The largest dimension is passed so texture repeats scale with object size,
+   * keeping grain a constant physical size instead of stretching across a long
+   * cabinet.
+   */
+  private refreshMaterial(): void {
+    const { x, y, z } = this.mesh.scale;
+    this.mesh.material = MATERIALS.get(this.finish, this.baseColor, Math.max(x, y, z));
   }
 
   /** Swaps in geometry for the current profile, freeing any it replaces. */
@@ -315,7 +343,7 @@ export class SceneObject {
       case 'name':
         return this.label;
       case 'color':
-        return `#${this.mesh.material.color.getHexString()}`;
+        return this.baseColor;
       case 'width':
         return scale.x;
       case 'height':
@@ -368,6 +396,8 @@ export class SceneObject {
         return this.notes;
       case 'material':
         return this.material;
+      case 'finish':
+        return this.finish;
       case 'locked':
         return this.locked;
       case 'visible':
@@ -389,10 +419,14 @@ export class SceneObject {
         this.mesh.name = this.label;
         break;
       case 'color':
-        this.mesh.material.color.set(String(value));
+        // Materials are shared, so recolouring means asking for a different
+        // one rather than mutating an instance twenty objects are using.
+        this.baseColor = String(value);
+        this.refreshMaterial();
         break;
       case 'width':
         this.mesh.scale.x = size(value);
+        this.refreshMaterial();
         break;
       case 'height':
         this.mesh.scale.y = size(value);
@@ -470,6 +504,10 @@ export class SceneObject {
         break;
       case 'material':
         this.material = String(value);
+        break;
+      case 'finish':
+        this.finish = String(value);
+        this.refreshMaterial();
         break;
       case 'locked':
         this.locked = Boolean(value);

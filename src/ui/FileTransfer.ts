@@ -33,6 +33,23 @@ export class FileTransfer {
   }
 
   /**
+   * Offers an already-encoded data URL as a download.
+   *
+   * Used for canvas captures, which arrive as data URLs rather than as text
+   * that could be wrapped in a Blob.
+   */
+  static downloadDataUrl(filename: string, dataUrl: string): void {
+    const anchor = document.createElement('a');
+    anchor.href = dataUrl;
+    anchor.download = filename;
+    anchor.style.display = 'none';
+
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  /**
    * Asks the user for a file and reads it as text.
    *
    * @param accept Value for the input's `accept` attribute.

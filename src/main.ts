@@ -31,6 +31,12 @@ app.loadVehicle(RAM_PROMASTER_2500_159_HIGH_ROOF);
 
 // Restore whatever was open last. Done after the UI is mounted so the panels
 // receive the events the restore emits.
+// The shell dims its chrome while walking, which is a whole-document concern
+// rather than one panel's.
+app.bus.on('walkthrough:changed', ({ active }) => {
+  mount('app').classList.toggle('is-walkthrough', active);
+});
+
 app.projects.restoreOrCreate();
 
 app.start();

@@ -87,6 +87,14 @@ export interface ObjectProperties {
    * conditionally present.
    */
   material: string;
+  /**
+   * Surface finish key, from the render material library.
+   *
+   * Distinct from `material`, which is a *cut list* concept: a panel can be
+   * birch plywood for costing purposes while being rendered painted. Conflating
+   * the two would mean painting a cabinet changed what the lumberyard sells you.
+   */
+  finish: string;
   locked: boolean;
   visible: boolean;
   /** Layer the object belongs to. Always a valid layer id. */
@@ -155,6 +163,8 @@ export interface ObjectData {
   notes: string;
   /** Material key. Absent in projects saved before materials existed. */
   material?: string;
+  /** Render finish key. Absent in projects saved before finishes existed. */
+  finish?: string;
   locked: boolean;
   visible: boolean;
   /** Layer membership. Optional so projects saved before layers still load. */

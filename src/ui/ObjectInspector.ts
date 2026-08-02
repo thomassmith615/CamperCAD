@@ -5,6 +5,7 @@ import { formatLength } from '@/math/Units';
 import { KIND_INFO } from '@/geometry/GeometryRegistry';
 import { MATERIAL_LABELS, type SheetMaterial } from '@/analysis/BomTypes';
 import { TANK_ROLE_LABELS, type TankRole } from '@/analysis/PlumbingTypes';
+import { FINISHES } from '@/render/MaterialLibrary';
 import { ProfileEditor } from './ProfileEditor';
 import { Panel } from './Panel';
 import { ColorField, NotesField, NumberField, TextField } from './Fields';
@@ -42,6 +43,7 @@ export class ObjectInspector {
   private readonly kindReadout: HTMLElement;
   private readonly materialSelect: HTMLSelectElement;
   private readonly materialRow: HTMLElement;
+  private readonly finishSelect: HTMLSelectElement;
   private readonly electricalPanel: Panel;
   private readonly acToggle: HTMLInputElement;
   private readonly dailyEnergy: HTMLElement;
@@ -88,6 +90,17 @@ export class ObjectInspector {
     });
     this.materialRow = ObjectInspector.row('Material', this.materialSelect);
     identity.append(this.materialRow);
+
+    this.finishSelect = document.createElement('select');
+    this.finishSelect.className = 'field-select field-select--full';
+    for (const finish of FINISHES) {
+      const option = document.createElement('option');
+      option.value = finish.id;
+      option.textContent = finish.label;
+      this.finishSelect.append(option);
+    }
+    this.finishSelect.addEventListener('change', () => this.commit('finish', this.finishSelect.value));
+    identity.append(ObjectInspector.row('Finish', this.finishSelect));
 
     const dimensions = new Panel('Dimensions');
     this.addNumberField(dimensions, 'Width', 'width', 'length');
@@ -255,6 +268,8 @@ export class ObjectInspector {
     // Material only decides anything for sheet goods, so the row is hidden for
     // everything else rather than inviting the user to set a value that has no
     // effect on the cut list.
+    this.finishSelect.value = object.get('finish');
+
     const isSheet = KIND_INFO[object.kind].isSheet;
     this.materialRow.hidden = !isSheet;
     if (isSheet) this.materialSelect.value = object.get('material');

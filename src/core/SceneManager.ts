@@ -36,6 +36,30 @@ export class SceneManager {
     this.scene.add(this.lighting.group, this.vehicleGroup, this.designGroup, this.helperGroup);
   }
 
+  /**
+   * Applies a background colour and fog range.
+   *
+   * Fog is disabled entirely rather than pushed far away when a preset asks for
+   * none: distant fog still tints large surfaces, which is wrong for a flat
+   * technical view.
+   */
+  applyEnvironment(background: number, fog: [number, number] | null): void {
+    (this.scene.background as THREE.Color).setHex(background);
+
+    if (!fog) {
+      this.scene.fog = null;
+      return;
+    }
+
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.color.setHex(background);
+      this.scene.fog.near = fog[0];
+      this.scene.fog.far = fog[1];
+    } else {
+      this.scene.fog = new THREE.Fog(background, fog[0], fog[1]);
+    }
+  }
+
   /** Returns the group backing a layer. */
   layer(layer: SceneLayer): THREE.Group {
     switch (layer) {
